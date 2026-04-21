@@ -7,12 +7,19 @@
     class="ribbon-tabs"
     [class.ribbon-tabs-dark-theme]="theme() === 'dark'"
     [class.ribbon-tabs--compact]="mode() === 'compact'"
+    [class.ribbon-tabs--sorting]="isDragging()"
     [class.ribbon-tabs--with-menu]="mode() !== 'compact' && showTabBarMenuButton()"
   >
     @if (mode() !== 'compact' && showTabBarMenuButton() && scrollOffset() > 0) {
       <div class="ribbon-tabs-leading-mask" aria-hidden="true"></div>
     }
-    <div class="ribbon-tabs-content" #content role="tablist" aria-label="Chrome style tabs">
+    <div
+      class="ribbon-tabs-content"
+      #content
+      role="tablist"
+      aria-label="Chrome style tabs"
+      (wheel)="handleTabsWheel($event)"
+    >
       @for (tab of renderedTabs(); track tab.id) {
         <div
           class="ribbon-tab"
@@ -21,10 +28,10 @@
           [attr.is-smaller]="tab.isSmaller ? '' : null"
           [attr.is-mini]="tab.isMini ? '' : null"
           [class.ribbon-tab--has-favicon]="!!tab.favicon"
-          [class.ribbon-tab--dragging]="isDragging()"
+          [class.ribbon-tab--dragging]="isDraggedTab(tab.id)"
           [attr.aria-selected]="tab.active"
           [style.width.px]="tab.width"
-          [style.transform]="'translate3d(' + (tab.position - scrollOffset()) + 'px, 0, 0)'"
+          [style.transform]="getTabTransform(tab)"
         >
           <div class="ribbon-tab-dividers"></div>
           <div class="ribbon-tab-background">
@@ -67,10 +74,10 @@
             role="tab"
             [attr.aria-label]="tab.title"
             (click)="selectTab(tab.id, $event)"
-            (pointerdown)="handlePointerDown($event)"
-            (pointermove)="handlePointerMove($event)"
-            (pointerup)="handlePointerUp($event)"
-            (pointercancel)="handlePointerUp($event)"
+            (pointerdown)="handleTabPointerDown(tab.id, $event)"
+            (pointermove)="handleTabPointerMove(tab.id, $event)"
+            (pointerup)="handleTabPointerUp(tab.id, $event)"
+            (pointercancel)="handleTabPointerUp(tab.id, $event)"
           >
             @if (tab.favicon) {
               <div

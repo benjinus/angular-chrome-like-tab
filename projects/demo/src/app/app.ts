@@ -33,6 +33,8 @@ export class App implements AfterViewInit {
   protected readonly eventLog = signal<string[]>([]);
   protected readonly theme = signal<RHCRibbonTabTheme>('light');
   protected readonly showIcons = signal(true);
+  protected readonly enableTabReorder = signal(false);
+  protected readonly enableCompactTabReorder = signal(false);
   protected readonly tabs = signal<RHCRibbonLayoutTab[]>([]);
   protected readonly activeTabId = signal<string | null>('facebook');
   protected readonly compactTabs = signal<RHCRibbonLayoutTab[]>([]);
@@ -172,6 +174,14 @@ export class App implements AfterViewInit {
     this.tabs.update((tabs) => this.applyIconVisibility(tabs));
   }
 
+  protected toggleTabReorder(): void {
+    this.enableTabReorder.update((enabled) => !enabled);
+  }
+
+  protected toggleCompactTabReorder(): void {
+    this.enableCompactTabReorder.update((enabled) => !enabled);
+  }
+
   protected addTab(): void {
     this.ribbonLayout?.addTab(this.buildPreviewTab());
   }
@@ -246,12 +256,32 @@ export class App implements AfterViewInit {
     this.tabs.set(this.applyIconVisibility(tabs));
   }
 
+  protected handleTabReorder(event: {
+    tab: RHCRibbonLayoutTab;
+    previousIndex: number;
+    currentIndex: number;
+  }): void {
+    this.pushEventLog(
+      `tabReorder · ${event.tab.title} · ${event.previousIndex} -> ${event.currentIndex}`,
+    );
+  }
+
   protected handleCompactTabSelect(event: RHCRibbonLayoutSelectEvent): void {
     this.compactActiveTabId.set(event.tab?.id ?? null);
   }
 
   protected handleCompactTabsChange(tabs: RHCRibbonLayoutTab[]): void {
     this.compactTabs.set(this.applyIconVisibility(tabs));
+  }
+
+  protected handleCompactTabReorder(event: {
+    tab: RHCRibbonLayoutTab;
+    previousIndex: number;
+    currentIndex: number;
+  }): void {
+    this.pushEventLog(
+      `compactTabReorder · ${event.tab.title} · ${event.previousIndex} -> ${event.currentIndex}`,
+    );
   }
 
   protected setCompactActiveTab(tabId: string): void {

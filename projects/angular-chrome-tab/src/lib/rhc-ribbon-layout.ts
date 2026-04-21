@@ -43,9 +43,7 @@ const COMPACT_TAB_CLOSE_BUTTON_GAP = 6;
 const TAB_SIZE_SMALL = TAB_CONTENT_MIN_WIDTH + 1;
 const TAB_SIZE_SMALLER = 60;
 const TAB_SIZE_MINI = 48;
-const MAX_OVERSCROLL = 72;
-const DRAG_OVERSCROLL_RESISTANCE = 0.32;
-const FLING_OVERSCROLL_RESISTANCE = 0.22;
+const TAB_REORDER_DRAG_THRESHOLD = 4;
 
 export interface RHCRibbonTabItem {
   id: string;
@@ -197,25 +195,6 @@ function measureTabTitleWidth(title: string): number {
   return context.measureText(title).width;
 }
 
-function applyOverscrollResistance(
-  value: number,
-  min: number,
-  max: number,
-  resistance: number,
-): number {
-  if (value < min) {
-    const overscroll = (value - min) * resistance;
-    return min + clamp(overscroll, -MAX_OVERSCROLL, 0);
-  }
-
-  if (value > max) {
-    const overscroll = (value - max) * resistance;
-    return max + clamp(overscroll, 0, MAX_OVERSCROLL);
-  }
-
-  return value;
-}
-
 function shouldShowCloseButton(
   tab: RHCRibbonLayoutTab | RHCRibbonRenderedTab,
   mode: RHCRibbonLayoutMode,
@@ -294,10 +273,11 @@ function buildRenderedTabs(
 
 interface RHCRibbonDragState {
   id: number;
+  tabId: string;
   startX: number;
-  lastX: number;
-  lastTime: number;
-  velocityX: number;
+  initialLeft: number;
+  currentLeft: number;
+  width: number;
   moved: boolean;
 }
 
@@ -314,6 +294,7 @@ interface RHCRibbonDragState {
 export class RHCRibbonLayoutComponent implements AfterViewInit, OnDestroy {
   readonly tabs = input<RHCRibbonLayoutTab[]>([]);
   readonly mode = input<RHCRibbonLayoutMode>('default');
+  readonly enableTabReorder = input(false);
   readonly showTabBarMenuButton = input(false);
   readonly tabBarMenuTemplate = input<TemplateRef<RHCRibbonLayoutTabBarMenuContext> | null>(null);
   readonly controlledActiveTabId = input<string | null | undefined>(undefined, {
@@ -401,8 +382,6 @@ export class RHCRibbonLayoutComponent implements AfterViewInit, OnDestroy {
   );
   private resizeObserver: ResizeObserver | null = null;
   private dragState: RHCRibbonDragState | null = null;
-  private flingAnimationFrame: number | null = null;
-  private bounceAnimationFrame: number | null = null;
   private suppressClickUntil = 0;
   private hasViewInitialized = false;
   private readonly eventListeners = new Map<
@@ -433,7 +412,7 @@ export class RHCRibbonLayoutComponent implements AfterViewInit, OnDestroy {
     });
 
     effect(() => {
-      if (this.isDragging() || this.flingAnimationFrame !== null || this.bounceAnimationFrame !== null) {
+      if (this.isDragging()) {
         return;
       }
 
@@ -446,9 +425,7 @@ export class RHCRibbonLayoutComponent implements AfterViewInit, OnDestroy {
     effect(() => {
       if (
         !this.hasViewInitialized ||
-        this.isDragging() ||
-        this.flingAnimationFrame !== null ||
-        this.bounceAnimationFrame !== null
+        this.isDragging()
       ) {
         return;
       }
@@ -492,8 +469,6 @@ export class RHCRibbonLayoutComponent implements AfterViewInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.resizeObserver?.disconnect();
-    this.stopFling();
-    this.stopBounce();
   }
 
   public addEventListener(
@@ -652,57 +627,62 @@ export class RHCRibbonLayoutComponent implements AfterViewInit, OnDestroy {
     this.setActiveTab(tabId, 'ui');
   }
 
-  protected handlePointerDown(event: PointerEvent): void {
+  protected handleTabPointerDown(tabId: string, event: PointerEvent): void {
+    if (!this.enableTabReorder()) {
+      return;
+    }
+
     if (event.pointerType === 'mouse' && event.button !== 0) {
       return;
     }
 
     const target = event.currentTarget as HTMLElement | null;
+    const renderedTab = this.renderedTabs().find((tab) => tab.id === tabId);
+    if (!target || !renderedTab) {
+      return;
+    }
+
     target?.setPointerCapture(event.pointerId);
-    this.stopFling();
-    this.stopBounce();
     this.dragState = {
       id: event.pointerId,
+      tabId,
       startX: event.clientX,
-      lastX: event.clientX,
-      lastTime: event.timeStamp,
-      velocityX: 0,
+      initialLeft: renderedTab.position - this.scrollOffset(),
+      currentLeft: renderedTab.position - this.scrollOffset(),
+      width: renderedTab.width,
       moved: false,
     };
     this.isDragging.set(false);
   }
 
-  protected handlePointerMove(event: PointerEvent): void {
-    if (!this.dragState || this.dragState.id !== event.pointerId) {
+  protected handleTabPointerMove(tabId: string, event: PointerEvent): void {
+    if (!this.enableTabReorder()) {
       return;
     }
 
-    const deltaX = event.clientX - this.dragState.lastX;
-    const elapsedMs = Math.max(1, event.timeStamp - this.dragState.lastTime);
-    const nextOffset = applyOverscrollResistance(
-      this.scrollOffset() - deltaX,
-      0,
-      this.maxScrollOffset(),
-      DRAG_OVERSCROLL_RESISTANCE,
-    );
+    if (!this.dragState || this.dragState.id !== event.pointerId || this.dragState.tabId !== tabId) {
+      return;
+    }
 
-    if (!this.dragState.moved && Math.abs(event.clientX - this.dragState.startX) > 4) {
+    const deltaX = event.clientX - this.dragState.startX;
+    if (!this.dragState.moved && Math.abs(deltaX) > TAB_REORDER_DRAG_THRESHOLD) {
       this.dragState.moved = true;
       this.isDragging.set(true);
     }
 
     if (this.dragState.moved) {
       event.preventDefault();
+      this.dragState.currentLeft = this.dragState.initialLeft + deltaX;
+      this.maybeReorderDraggedTab();
     }
-
-    this.scrollOffset.set(nextOffset);
-    this.dragState.velocityX = (-deltaX / elapsedMs) * 0.35 + this.dragState.velocityX * 0.65;
-    this.dragState.lastX = event.clientX;
-    this.dragState.lastTime = event.timeStamp;
   }
 
-  protected handlePointerUp(event: PointerEvent): void {
-    if (!this.dragState || this.dragState.id !== event.pointerId) {
+  protected handleTabPointerUp(tabId: string, event: PointerEvent): void {
+    if (!this.enableTabReorder()) {
+      return;
+    }
+
+    if (!this.dragState || this.dragState.id !== event.pointerId || this.dragState.tabId !== tabId) {
       return;
     }
 
@@ -711,9 +691,6 @@ export class RHCRibbonLayoutComponent implements AfterViewInit, OnDestroy {
       target.releasePointerCapture(event.pointerId);
     }
 
-    const shouldFling =
-      this.dragState.moved && Math.abs(this.dragState.velocityX) > 0.15 && this.maxScrollOffset() > 0;
-    const flingVelocity = this.dragState.velocityX;
     const shouldSuppressClick = this.dragState.moved;
 
     this.dragState = null;
@@ -721,15 +698,25 @@ export class RHCRibbonLayoutComponent implements AfterViewInit, OnDestroy {
     if (shouldSuppressClick) {
       this.suppressClickUntil = event.timeStamp + 250;
     }
+  }
 
-    if (shouldFling) {
-      this.startFling(flingVelocity);
+  protected handleTabsWheel(event: WheelEvent): void {
+    if (this.isDragging() || this.maxScrollOffset() <= 0) {
       return;
     }
 
-    if (this.isOutOfBounds(this.scrollOffset())) {
-      this.startBounceToBounds();
+    const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+    if (!delta) {
+      return;
     }
+
+    const nextOffset = clamp(this.scrollOffset() + delta, 0, this.maxScrollOffset());
+    if (nextOffset === this.scrollOffset()) {
+      return;
+    }
+
+    event.preventDefault();
+    this.scrollOffset.set(nextOffset);
   }
 
   protected handleCloseButtonPointerDown(event: PointerEvent): void {
@@ -769,97 +756,51 @@ export class RHCRibbonLayoutComponent implements AfterViewInit, OnDestroy {
     return shouldShowCloseButton(tab, this.mode());
   }
 
-  private startFling(initialVelocity: number): void {
-    this.stopFling();
-    this.stopBounce();
-
-    let velocity = initialVelocity;
-    let lastTimestamp: number | null = null;
-
-    const tick = (timestamp: number) => {
-      if (lastTimestamp === null) {
-        lastTimestamp = timestamp;
-        this.flingAnimationFrame = requestAnimationFrame(tick);
-        return;
-      }
-
-      const deltaMs = Math.max(1, timestamp - lastTimestamp);
-      lastTimestamp = timestamp;
-
-      const nextOffset = applyOverscrollResistance(
-        this.scrollOffset() + velocity * deltaMs,
-        0,
-        this.maxScrollOffset(),
-        FLING_OVERSCROLL_RESISTANCE,
-      );
-      this.scrollOffset.set(nextOffset);
-
-      const deceleration = 0.0032 * deltaMs;
-      if (velocity > 0) {
-        velocity = Math.max(0, velocity - deceleration);
-      } else {
-        velocity = Math.min(0, velocity + deceleration);
-      }
-
-      if (this.isOutOfBounds(nextOffset)) {
-        velocity *= 0.82;
-      }
-
-      if (Math.abs(velocity) < 0.02) {
-        this.stopFling();
-        if (this.isOutOfBounds(this.scrollOffset())) {
-          this.startBounceToBounds();
-        }
-        return;
-      }
-
-      this.flingAnimationFrame = requestAnimationFrame(tick);
-    };
-
-    this.flingAnimationFrame = requestAnimationFrame(tick);
-  }
-
-  private stopFling(): void {
-    if (this.flingAnimationFrame !== null) {
-      cancelAnimationFrame(this.flingAnimationFrame);
-      this.flingAnimationFrame = null;
-    }
-  }
-
-  private startBounceToBounds(): void {
-    this.stopBounce();
-
-    const tick = () => {
-      const currentOffset = this.scrollOffset();
-      const boundedOffset = this.getBoundedScrollOffset(currentOffset);
-      const delta = boundedOffset - currentOffset;
-
-      if (Math.abs(delta) < 0.5) {
-        this.scrollOffset.set(boundedOffset);
-        this.stopBounce();
-        return;
-      }
-
-      this.scrollOffset.set(currentOffset + delta * 0.2);
-      this.bounceAnimationFrame = requestAnimationFrame(tick);
-    };
-
-    this.bounceAnimationFrame = requestAnimationFrame(tick);
-  }
-
-  private stopBounce(): void {
-    if (this.bounceAnimationFrame !== null) {
-      cancelAnimationFrame(this.bounceAnimationFrame);
-      this.bounceAnimationFrame = null;
-    }
-  }
-
-  private isOutOfBounds(offset: number): boolean {
-    return offset < 0 || offset > this.maxScrollOffset();
-  }
-
   private getBoundedScrollOffset(offset: number): number {
     return clamp(offset, 0, this.maxScrollOffset());
+  }
+
+  protected isDraggedTab(tabId: string): boolean {
+    return this.dragState?.moved === true && this.dragState.tabId === tabId;
+  }
+
+  protected getTabTransform(tab: RHCRibbonRenderedTab): string {
+    if (this.dragState?.moved && this.dragState.tabId === tab.id) {
+      return `translate3d(${this.dragState.currentLeft}px, 0, 0)`;
+    }
+
+    return `translate3d(${tab.position - this.scrollOffset()}px, 0, 0)`;
+  }
+
+  private maybeReorderDraggedTab(): void {
+    if (!this.dragState?.moved) {
+      return;
+    }
+
+    const tabs = this.renderedTabs();
+    const currentIndex = tabs.findIndex((tab) => tab.id === this.dragState?.tabId);
+    const draggedTab = currentIndex >= 0 ? tabs[currentIndex] : null;
+    if (!draggedTab) {
+      return;
+    }
+
+    const dragCenter = this.dragState.currentLeft + this.scrollOffset() + this.dragState.width / 2;
+    let destinationIndex = currentIndex;
+    let closestDistance = Number.POSITIVE_INFINITY;
+
+    tabs.forEach((tab, index) => {
+      const tabCenter = tab.position + tab.width / 2;
+      const distance = Math.abs(tabCenter - dragCenter);
+
+      if (distance < closestDistance) {
+        closestDistance = distance;
+        destinationIndex = index;
+      }
+    });
+
+    if (destinationIndex !== currentIndex) {
+      this.reorderTab(draggedTab.id, destinationIndex);
+    }
   }
 
   private emitLifecycleEvent(event: RHCRibbonLayoutEvent): void {

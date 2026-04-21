@@ -116,6 +116,10 @@
   pointer-events: none;
 }
 
+.ribbon-tabs--sorting .ribbon-tab:not(.ribbon-tab--dragging) {
+  transition: transform 120ms ease-in-out;
+}
+
 .ribbon-tab,
 .ribbon-tab * {
   user-select: none;
@@ -283,6 +287,10 @@
 
 .ribbon-tab--dragging .ribbon-tab-content {
   cursor: grabbing;
+}
+
+.ribbon-tab--dragging {
+  z-index: 20;
 }
 
 .ribbon-tab[is-mini] .ribbon-tab-content {

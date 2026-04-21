@@ -13,12 +13,14 @@
       #ribbonLayout
       [tabs]="tabs()"
       [activeTabId]="activeTabId()"
+      [enableTabReorder]="enableTabReorder()"
       [showTabBarMenuButton]="true"
       [tabBarMenuTemplate]="tabBarMenuTemplateRef ?? null"
       [theme]="theme()"
       (tabBarMenuClick)="handleTabBarMenuClick($event)"
       (tabCreate)="handleTabCreate($event)"
       (tabRemove)="handleTabRemove($event)"
+      (tabReorder)="handleTabReorder($event)"
       (tabSelect)="handleTabSelect($event)"
       (tabEvent)="handleTabEvent($event)"
       (tabsChange)="handleTabsChange($event)"
@@ -28,6 +30,9 @@
       <button type="button" (click)="toggleTheme()">切换主题</button>
       <button type="button" (click)="toggleIcons()">
         {{ showIcons() ? '隐藏 icon' : '显示 icon' }}
+      </button>
+      <button type="button" (click)="toggleTabReorder()">
+        {{ enableTabReorder() ? '禁用拖拽排序' : '启用拖拽排序' }}
       </button>
       <button type="button" (click)="addTab()">新增标签</button>
       <button type="button" (click)="addClosableTab()">新增标签页带关闭按钮</button>
@@ -51,7 +56,8 @@
       <h2>{{ activeTitle() }}</h2>
       <p class="preview-meta">
         Theme: {{ theme() }} · Tabs: {{ tabs().length }} · Icons:
-        {{ showIcons() ? 'on' : 'off' }}
+        {{ showIcons() ? 'on' : 'off' }} · Drag reorder:
+        {{ enableTabReorder() ? 'on' : 'off' }}
       </p>
     </div>
 
@@ -84,12 +90,17 @@
       [mode]="'compact'"
       [tabs]="compactTabs()"
       [activeTabId]="compactActiveTabId()"
+      [enableTabReorder]="enableCompactTabReorder()"
       [theme]="theme()"
+      (tabReorder)="handleCompactTabReorder($event)"
       (tabSelect)="handleCompactTabSelect($event)"
       (tabsChange)="handleCompactTabsChange($event)"
     />
 
     <div class="toolbar">
+      <button type="button" (click)="toggleCompactTabReorder()">
+        {{ enableCompactTabReorder() ? '禁用文件标签拖拽排序' : '启用文件标签拖拽排序' }}
+      </button>
       @for (tab of compactTabs(); track tab.id) {
         <button
           type="button"
@@ -106,7 +117,8 @@
       <p class="preview-label">Current Compact Tab</p>
       <h2>{{ compactActiveTitle() }}</h2>
       <p class="preview-meta">
-        Theme: {{ theme() }} · Tabs: {{ compactTabs().length }} · Mode: compact
+        Theme: {{ theme() }} · Tabs: {{ compactTabs().length }} · Mode: compact · Drag reorder:
+        {{ enableCompactTabReorder() ? 'on' : 'off' }}
       </p>
     </div>
   </section>

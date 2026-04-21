@@ -6,6 +6,40 @@ import { RHCRibbonLayoutComponent, RHCRibbonLayoutTab } from './rhc-ribbon-layou
 
 const TAB_WITH_ICON =
   'data:image/svg+xml;utf8,%3Csvg xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22 width%3D%2216%22 height%3D%2216%22%3E%3Crect width%3D%2216%22 height%3D%2216%22 fill%3D%22%23000%22%2F%3E%3C%2Fsvg%3E';
+const pointerCaptures = new WeakMap<HTMLElement, Set<number>>();
+
+function parseTranslateX(element: HTMLElement | null): number {
+  return Number.parseFloat(element?.style.transform.match(/translate3d\(([-\d.]+)px/)?.[1] ?? '0');
+}
+
+function dispatchPointerEvent(
+  element: Element | null,
+  type: string,
+  init: Partial<PointerEventInit> & { timeStamp?: number } = {},
+): void {
+  if (!element) {
+    return;
+  }
+
+  const event = new PointerEvent(type, {
+    bubbles: true,
+    cancelable: true,
+    pointerId: init.pointerId ?? 1,
+    pointerType: init.pointerType ?? 'mouse',
+    clientX: init.clientX ?? 0,
+    clientY: init.clientY ?? 0,
+    button: init.button ?? 0,
+  });
+
+  if (init.timeStamp !== undefined) {
+    Object.defineProperty(event, 'timeStamp', {
+      configurable: true,
+      value: init.timeStamp,
+    });
+  }
+
+  element.dispatchEvent(event);
+}
 
 @Component({
   standalone: true,
@@ -46,6 +80,62 @@ describe('RHCRibbonLayoutComponent', () => {
   let fixture: ComponentFixture<RHCRibbonLayoutComponent>;
 
   beforeAll(() => {
+    if (!globalThis.PointerEvent) {
+      class PointerEventMock extends MouseEvent implements PointerEvent {
+        readonly height = 1;
+        readonly isPrimary = true;
+        readonly pointerId: number;
+        readonly pointerType: string;
+        readonly pressure = 0;
+        readonly tangentialPressure = 0;
+        readonly tiltX = 0;
+        readonly tiltY = 0;
+        readonly twist = 0;
+        readonly width = 1;
+        readonly altitudeAngle = 0;
+        readonly azimuthAngle = 0;
+        readonly persistentDeviceId = 0;
+
+        constructor(type: string, init?: PointerEventInit) {
+          super(type, init);
+          this.pointerId = init?.pointerId ?? 1;
+          this.pointerType = init?.pointerType ?? 'mouse';
+        }
+
+        getCoalescedEvents(): PointerEvent[] {
+          return [];
+        }
+
+        getPredictedEvents(): PointerEvent[] {
+          return [];
+        }
+      }
+
+      globalThis.PointerEvent = PointerEventMock as typeof PointerEvent;
+    }
+
+    if (!HTMLElement.prototype.setPointerCapture) {
+      HTMLElement.prototype.setPointerCapture = function setPointerCapture(pointerId: number): void {
+        const captures = pointerCaptures.get(this) ?? new Set<number>();
+        captures.add(pointerId);
+        pointerCaptures.set(this, captures);
+      };
+    }
+
+    if (!HTMLElement.prototype.hasPointerCapture) {
+      HTMLElement.prototype.hasPointerCapture = function hasPointerCapture(pointerId: number): boolean {
+        return pointerCaptures.get(this)?.has(pointerId) ?? false;
+      };
+    }
+
+    if (!HTMLElement.prototype.releasePointerCapture) {
+      HTMLElement.prototype.releasePointerCapture = function releasePointerCapture(
+        pointerId: number,
+      ): void {
+        pointerCaptures.get(this)?.delete(pointerId);
+      };
+    }
+
     if (!globalThis.ResizeObserver) {
       class ResizeObserverMock implements ResizeObserver {
         observe(): void {}
@@ -589,6 +679,127 @@ describe('RHCRibbonLayoutComponent', () => {
     unsubscribe();
     component.closeTab('1');
     expect(listener).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not reorder tabs by dragging when tab reordering is disabled by default', () => {
+    fixture.componentRef.setInput('tabs', [
+      { id: '1', title: 'One' },
+      { id: '2', title: 'Two' },
+      { id: '3', title: 'Three' },
+    ]);
+    fixture.detectChanges();
+
+    const emitSpy = vi.spyOn(component.tabReorder, 'emit');
+    const tabElements = Array.from(fixture.nativeElement.querySelectorAll('.ribbon-tab')) as HTMLElement[];
+    const firstTab = tabElements[0] as HTMLElement;
+    const secondTab = tabElements[1] as HTMLElement;
+    const firstTabContent = firstTab.querySelector('.ribbon-tab-content') as HTMLButtonElement | null;
+    const moveDelta = parseTranslateX(secondTab) - parseTranslateX(firstTab) + 8;
+
+    dispatchPointerEvent(firstTabContent, 'pointerdown', { clientX: 100, timeStamp: 0 });
+    dispatchPointerEvent(firstTabContent, 'pointermove', { clientX: 100 + moveDelta, timeStamp: 16 });
+    fixture.detectChanges();
+    dispatchPointerEvent(firstTabContent, 'pointerup', { clientX: 100 + moveDelta, timeStamp: 32 });
+    fixture.detectChanges();
+
+    const titles = Array.from(fixture.nativeElement.querySelectorAll('.ribbon-tab-title')).map((element) =>
+      (element as HTMLElement).textContent?.trim(),
+    );
+
+    expect(emitSpy).not.toHaveBeenCalled();
+    expect(titles).toEqual(['One', 'Two', 'Three']);
+  });
+
+  it('reorders tabs when dragging a tab past the next slot after explicitly enabling tab reordering', () => {
+    fixture.componentRef.setInput('enableTabReorder', true);
+    fixture.componentRef.setInput('tabs', [
+      { id: '1', title: 'One' },
+      { id: '2', title: 'Two' },
+      { id: '3', title: 'Three' },
+    ]);
+    fixture.detectChanges();
+
+    const emitSpy = vi.spyOn(component.tabReorder, 'emit');
+    const tabElements = Array.from(fixture.nativeElement.querySelectorAll('.ribbon-tab')) as HTMLElement[];
+    const firstTab = tabElements[0] as HTMLElement;
+    const secondTab = tabElements[1] as HTMLElement;
+    const firstTabContent = firstTab.querySelector('.ribbon-tab-content') as HTMLButtonElement | null;
+    const moveDelta = parseTranslateX(secondTab) - parseTranslateX(firstTab) + 8;
+
+    dispatchPointerEvent(firstTabContent, 'pointerdown', { clientX: 100, timeStamp: 0 });
+    dispatchPointerEvent(firstTabContent, 'pointermove', { clientX: 100 + moveDelta, timeStamp: 16 });
+    fixture.detectChanges();
+    dispatchPointerEvent(firstTabContent, 'pointerup', { clientX: 100 + moveDelta, timeStamp: 32 });
+    fixture.detectChanges();
+
+    const titles = Array.from(fixture.nativeElement.querySelectorAll('.ribbon-tab-title')).map((element) =>
+      (element as HTMLElement).textContent?.trim(),
+    );
+
+    expect(emitSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tab: expect.objectContaining({ id: '1' }),
+        previousIndex: 0,
+        currentIndex: 1,
+      }),
+    );
+    expect(titles).toEqual(['Two', 'One', 'Three']);
+  });
+
+  it('reorders compact tabs when dragging a tab past the next slot after explicitly enabling tab reordering', () => {
+    fixture.componentRef.setInput('enableTabReorder', true);
+    fixture.componentRef.setInput('mode', 'compact');
+    fixture.componentRef.setInput('tabs', [
+      { id: '1', title: 'Report.pdf' },
+      { id: '2', title: 'Appendix.pdf' },
+      { id: '3', title: 'Notes.pdf' },
+    ]);
+    fixture.detectChanges();
+
+    const emitSpy = vi.spyOn(component.tabReorder, 'emit');
+    const tabElements = Array.from(fixture.nativeElement.querySelectorAll('.ribbon-tab')) as HTMLElement[];
+    const firstTab = tabElements[0] as HTMLElement;
+    const secondTab = tabElements[1] as HTMLElement;
+    const firstTabContent = firstTab.querySelector('.ribbon-tab-content') as HTMLButtonElement | null;
+    const moveDelta = parseTranslateX(secondTab) - parseTranslateX(firstTab) + 8;
+
+    dispatchPointerEvent(firstTabContent, 'pointerdown', { clientX: 120, timeStamp: 0 });
+    dispatchPointerEvent(firstTabContent, 'pointermove', { clientX: 120 + moveDelta, timeStamp: 16 });
+    fixture.detectChanges();
+    dispatchPointerEvent(firstTabContent, 'pointerup', { clientX: 120 + moveDelta, timeStamp: 32 });
+    fixture.detectChanges();
+
+    const titles = Array.from(fixture.nativeElement.querySelectorAll('.ribbon-tab-title')).map((element) =>
+      (element as HTMLElement).textContent?.trim(),
+    );
+
+    expect(emitSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tab: expect.objectContaining({ id: '1' }),
+        previousIndex: 0,
+        currentIndex: 1,
+      }),
+    );
+    expect(titles).toEqual(['Appendix.pdf', 'Report.pdf', 'Notes.pdf']);
+  });
+
+  it('does not start tab reordering from the close button', () => {
+    fixture.componentRef.setInput('enableTabReorder', true);
+    fixture.componentRef.setInput('tabs', [
+      { id: '1', title: 'One', showCloseButton: true },
+      { id: '2', title: 'Two' },
+    ]);
+    fixture.detectChanges();
+
+    const emitSpy = vi.spyOn(component.tabReorder, 'emit');
+    const closeButton = fixture.nativeElement.querySelector('.ribbon-tab-close') as HTMLElement | null;
+
+    dispatchPointerEvent(closeButton, 'pointerdown', { clientX: 100, timeStamp: 0 });
+    dispatchPointerEvent(closeButton, 'pointermove', { clientX: 180, timeStamp: 16 });
+    dispatchPointerEvent(closeButton, 'pointerup', { clientX: 180, timeStamp: 32 });
+    fixture.detectChanges();
+
+    expect(emitSpy).not.toHaveBeenCalled();
   });
 });
 

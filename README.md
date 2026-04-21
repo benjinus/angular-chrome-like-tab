@@ -1,59 +1,184 @@
-# AngularChromeLikeTab
+# Angular Chrome Like Tab
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.0.1.
+`angular-chrome-tab` 提供一个接近 Chrome 标签栏体验的 Angular 独立组件 `rhc-ribbon-layout`，支持：
 
-## Development server
+- 受控 active tab
+- 动态增删标签
+- 可选 icon / close button
+- `default` / `compact` 两种标签风格
+- 可选标签栏菜单按钮与 CDK overlay 菜单
+- 可选拖拽排序，默认关闭
 
-To start a local development server, run:
+## 安装
+
+```bash
+npm install angular-chrome-tab
+```
+
+## 基本用法
+
+```ts
+import { Component, TemplateRef, ViewChild, signal } from '@angular/core';
+import {
+  RHCRibbonLayoutComponent,
+  RHCRibbonLayoutSelectEvent,
+  RHCRibbonLayoutTab,
+  RHCRibbonLayoutTabContentContext,
+} from 'angular-chrome-tab';
+
+@Component({
+  selector: 'app-root',
+  imports: [RHCRibbonLayoutComponent],
+  template: `
+    <rhc-ribbon-layout
+      #ribbonLayout
+      [tabs]="tabs()"
+      [activeTabId]="activeTabId()"
+      [enableTabReorder]="true"
+      (tabSelect)="handleTabSelect($event)"
+      (tabsChange)="handleTabsChange($event)"
+    />
+
+    <ng-template #previewTemplate let-data let-tab="tab">
+      <section>
+        <h2>{{ tab?.title }}</h2>
+        <p>{{ data.description }}</p>
+      </section>
+    </ng-template>
+  `,
+})
+export class AppComponent {
+  protected readonly tabs = signal<RHCRibbonLayoutTab[]>([]);
+  protected readonly activeTabId = signal<string | null>('workspace');
+
+  @ViewChild(RHCRibbonLayoutComponent)
+  private readonly ribbonLayout?: RHCRibbonLayoutComponent;
+
+  @ViewChild('previewTemplate', { static: true })
+  private readonly previewTemplate?: TemplateRef<
+    RHCRibbonLayoutTabContentContext<{ description: string }>
+  >;
+
+  ngAfterViewInit(): void {
+    this.tabs.set([
+      new RHCRibbonLayoutTab({
+        id: 'workspace',
+        title: 'Workspace',
+        contentTemplate: this.previewTemplate ?? null,
+        contentContext: {
+          description: 'Controlled tab content rendered inside the ribbon layout.',
+        },
+      }),
+      new RHCRibbonLayoutTab({
+        id: 'inbox',
+        title: 'Inbox',
+        showCloseButton: true,
+        contentTemplate: this.previewTemplate ?? null,
+        contentContext: {
+          description: 'Each tab can carry its own template context.',
+        },
+      }),
+    ]);
+  }
+
+  protected handleTabSelect(event: RHCRibbonLayoutSelectEvent): void {
+    this.activeTabId.set(event.tab?.id ?? null);
+  }
+
+  protected handleTabsChange(tabs: RHCRibbonLayoutTab[]): void {
+    this.tabs.set(tabs);
+  }
+
+  protected addTab(): void {
+    this.ribbonLayout?.addTab(
+      new RHCRibbonLayoutTab({
+        id: crypto.randomUUID(),
+        title: 'New Tab',
+        showCloseButton: true,
+        contentTemplate: this.previewTemplate ?? null,
+        contentContext: {
+          description: 'New tabs can be appended programmatically.',
+        },
+      }),
+    );
+  }
+}
+```
+
+## 受控接口
+
+推荐把标签顺序和当前激活标签都放在外部状态里维护：
+
+- `[tabs]` 作为输入源
+- `[activeTabId]` 作为受控激活标签
+- `(tabsChange)` 用于同步内部增删/重排后的新顺序
+- `(tabSelect)` 用于同步当前激活标签
+
+程序化操作可通过组件实例调用：
+
+- `setActiveTab(tabId)`
+- `addTab(tab, options?)`
+- `closeTab(tabId)`
+- `reorderTab(tabId, targetIndex)`
+
+## 拖拽排序
+
+拖拽排序默认关闭，必须显式启用：
+
+```html
+<rhc-ribbon-layout
+  [tabs]="tabs()"
+  [activeTabId]="activeTabId()"
+  [enableTabReorder]="true"
+  (tabsChange)="tabs.set($event)"
+/>
+```
+
+说明：
+
+- `enableTabReorder` 只控制“手势拖拽排序”是否可用
+- 程序化 `reorderTab(tabId, targetIndex)` 始终可用
+- 拖拽完成后组件会立即更新内部顺序，并通过 `tabsChange` 与 `tabReorder` 通知外部
+
+## 常用输入与输出
+
+常用输入：
+
+- `[tabs]`
+- `[activeTabId]`
+- `[initialActiveTabId]`
+- `[mode]="'default' | 'compact'"`
+- `[theme]="'light' | 'dark'"`
+- `[enableTabReorder]="boolean"`
+- `[showTabBarMenuButton]="boolean"`
+- `[tabBarMenuTemplate]="templateRef"`
+
+常用输出：
+
+- `(tabSelect)`
+- `(tabCreate)`
+- `(tabRemove)`
+- `(tabReorder)`
+- `(tabsChange)`
+- `(tabBarMenuClick)`
+- `(tabEvent)`
+
+## 开发
+
+启动 demo：
 
 ```bash
 ng serve
 ```
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
-
-## Code scaffolding
-
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+构建库：
 
 ```bash
-ng generate component component-name
+ng build angular-chrome-tab
 ```
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+运行测试：
 
 ```bash
-ng generate --help
+ng test angular-chrome-tab
 ```
-
-## Building
-
-To build the project run:
-
-```bash
-ng build
-```
-
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
-
-## Running unit tests
-
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
-
-```bash
-ng test
-```
-
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
