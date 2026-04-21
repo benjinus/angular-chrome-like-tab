@@ -1,0 +1,97 @@
+<div
+  class="ribbon-tabs-shell"
+  [class.ribbon-tabs-shell--dark]="theme() === 'dark'"
+>
+  <div class="ribbon-tabs" [class.ribbon-tabs-dark-theme]="theme() === 'dark'">
+    <div class="ribbon-tabs-content" #content role="tablist" aria-label="Chrome style tabs">
+      @for (tab of renderedTabs(); track tab.id) {
+        <div
+          class="ribbon-tab"
+          [attr.active]="tab.active ? '' : null"
+          [attr.is-small]="tab.isSmall ? '' : null"
+          [attr.is-smaller]="tab.isSmaller ? '' : null"
+          [attr.is-mini]="tab.isMini ? '' : null"
+          [class.ribbon-tab--has-favicon]="!!tab.favicon"
+          [class.ribbon-tab--dragging]="isDragging()"
+          [attr.aria-selected]="tab.active"
+          [style.width.px]="tab.width"
+          [style.transform]="'translate3d(' + (tab.position - scrollOffset()) + 'px, 0, 0)'"
+        >
+          <div class="ribbon-tab-dividers"></div>
+          <div class="ribbon-tab-background">
+            <svg version="1.1" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <symbol id="chrome-tab-geometry-left" viewBox="0 0 214 36">
+                  <path d="M17 0h197v36H0v-2c4.5 0 9-3.5 9-8V8c0-4.5 3.5-8 8-8z" />
+                </symbol>
+                <symbol id="chrome-tab-geometry-right" viewBox="0 0 214 36">
+                  <use href="#chrome-tab-geometry-left" />
+                </symbol>
+              </defs>
+              <svg width="52%" height="100%">
+                <use
+                  href="#chrome-tab-geometry-left"
+                  width="214"
+                  height="36"
+                  class="ribbon-tab-geometry"
+                />
+              </svg>
+              <g transform="scale(-1, 1)">
+                <svg width="52%" height="100%" x="-100%" y="0">
+                  <use
+                    href="#chrome-tab-geometry-right"
+                    width="214"
+                    height="36"
+                    class="ribbon-tab-geometry"
+                  />
+                </svg>
+              </g>
+            </svg>
+          </div>
+          <button
+            type="button"
+            class="ribbon-tab-content"
+            [class.ribbon-tab-content--title-only]="!tab.favicon"
+            role="tab"
+            [attr.aria-label]="tab.title"
+            (click)="selectTab(tab.id, $event)"
+            (pointerdown)="handlePointerDown($event)"
+            (pointermove)="handlePointerMove($event)"
+            (pointerup)="handlePointerUp($event)"
+            (pointercancel)="handlePointerUp($event)"
+          >
+            @if (tab.favicon) {
+              <div
+                class="ribbon-tab-favicon"
+                [attr.hidden]="tab.hideFavicon ? '' : null"
+                [style.background-image]="'url(' + tab.favicon + ')'"
+              ></div>
+            }
+            <div class="ribbon-tab-title">{{ tab.title }}</div>
+          </button>
+        </div>
+      }
+    </div>
+    <div class="ribbon-tabs-bottom-bar"></div>
+  </div>
+
+  <div
+    class="rhc-ribbon-layout-content"
+    [class.rhc-ribbon-layout-content--empty]="!activeTab()"
+    [class.rhc-ribbon-layout-content--dark]="theme() === 'dark'"
+    [class]="activeTabContentContainerClass()"
+  >
+    @if (activeTab(); as activeTab) {
+      @if (activeTab.contentTemplate) {
+        <ng-container
+          [ngTemplateOutlet]="activeTab.contentTemplate"
+          [ngTemplateOutletContext]="activeTabContentContext()"
+        />
+      } @else {
+        <div class="rhc-ribbon-layout-empty-state">No content template provided.</div>
+      }
+    } @else {
+      <div class="rhc-ribbon-layout-empty-state">No active tab selected.</div>
+    }
+  </div>
+</div>

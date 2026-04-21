@@ -1,0 +1,251 @@
+:host {
+  display: block;
+  min-height: 100dvh;
+}
+
+.demo-shell {
+  min-height: 100dvh;
+  padding: 4rem 1.5rem;
+  color: #10203a;
+  background:
+    radial-gradient(circle at top left, rgba(120, 161, 255, 0.28), transparent 32%),
+    radial-gradient(circle at right center, rgba(255, 196, 146, 0.24), transparent 24%),
+    linear-gradient(180deg, #f3f6fb 0%, #e7edf6 100%);
+}
+
+.demo-shell--dark {
+  color: #edf2ff;
+  background:
+    radial-gradient(circle at top left, rgba(77, 95, 138, 0.42), transparent 30%),
+    radial-gradient(circle at right center, rgba(123, 97, 255, 0.2), transparent 24%),
+    linear-gradient(180deg, #14161a 0%, #1b1f27 100%);
+}
+
+.hero,
+.preview-card {
+  width: min(100%, 1040px);
+  margin: 0 auto;
+}
+
+.hero {
+  margin-bottom: 1.5rem;
+}
+
+.eyebrow {
+  margin: 0 0 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #5d6d8d;
+}
+
+.demo-shell--dark .eyebrow {
+  color: #98a6c7;
+}
+
+h1 {
+  margin: 0;
+  font-size: clamp(2.5rem, 5vw, 4.75rem);
+  line-height: 0.96;
+}
+
+.description {
+  max-width: 48rem;
+  margin: 1rem 0 0;
+  font-size: 1.05rem;
+  line-height: 1.7;
+  color: #55657f;
+}
+
+.demo-shell--dark .description {
+  color: #b4bfd8;
+}
+
+.preview-card {
+  padding: 1rem;
+  border: 1px solid rgba(118, 138, 177, 0.24);
+  border-radius: 1.5rem;
+  background: rgba(255, 255, 255, 0.76);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 30px 60px rgba(78, 96, 135, 0.12);
+}
+
+.demo-shell--dark .preview-card {
+  border-color: rgba(114, 128, 164, 0.26);
+  background: rgba(20, 24, 33, 0.74);
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.28);
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding: 1.25rem 1rem 0.5rem;
+}
+
+button {
+  appearance: none;
+  border: 0;
+  border-radius: 999px;
+  padding: 0.7rem 1rem;
+  font: inherit;
+  color: inherit;
+  background: rgba(91, 114, 156, 0.12);
+  cursor: pointer;
+  transition:
+    transform 140ms ease,
+    background 140ms ease;
+}
+
+button:hover {
+  transform: translateY(-1px);
+  background: rgba(91, 114, 156, 0.18);
+}
+
+.demo-shell--dark button {
+  background: rgba(151, 168, 208, 0.14);
+}
+
+.demo-shell--dark button:hover {
+  background: rgba(151, 168, 208, 0.22);
+}
+
+.tab-chip--active {
+  background: #10203a;
+  color: #ffffff;
+}
+
+.demo-shell--dark .tab-chip--active {
+  background: #edf2ff;
+  color: #111827;
+}
+
+.preview-panel {
+  padding: 1rem;
+}
+
+.tab-view {
+  display: grid;
+  gap: 1rem;
+}
+
+.tab-view__eyebrow {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #6d7d99;
+}
+
+.demo-shell--dark .tab-view__eyebrow {
+  color: #9baccc;
+}
+
+.tab-view h3 {
+  margin: 0;
+  font-size: 1.8rem;
+}
+
+.tab-view__body {
+  margin: 0;
+  max-width: 46rem;
+  line-height: 1.7;
+  color: #53627c;
+}
+
+.demo-shell--dark .tab-view__body {
+  color: #c0cae0;
+}
+
+.tab-view__stats,
+.tab-view__metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.tab-view__stat,
+.tab-view__metric-card,
+.tab-view__list-item {
+  border: 1px solid rgba(120, 138, 177, 0.2);
+  background: rgba(255, 255, 255, 0.72);
+  border-radius: 1rem;
+}
+
+.demo-shell--dark .tab-view__stat,
+.demo-shell--dark .tab-view__metric-card,
+.demo-shell--dark .tab-view__list-item {
+  border-color: rgba(141, 157, 197, 0.22);
+  background: rgba(28, 34, 46, 0.78);
+}
+
+.tab-view__stat {
+  padding: 0.7rem 0.95rem;
+  font-weight: 600;
+}
+
+.tab-view__list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.tab-view__list-item {
+  padding: 0.9rem 1rem;
+}
+
+.tab-view__metric-card {
+  min-width: 9rem;
+  padding: 1rem;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.tab-view__metric-label {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #6d7d99;
+}
+
+.demo-shell--dark .tab-view__metric-label {
+  color: #9baccc;
+}
+
+.tab-view__metric-value {
+  font-size: 1.2rem;
+}
+
+.preview-label,
+.preview-meta {
+  margin: 0;
+  color: #61728f;
+}
+
+.demo-shell--dark .preview-label,
+.demo-shell--dark .preview-meta {
+  color: #9cabc8;
+}
+
+.preview-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+h2 {
+  margin: 0.6rem 0;
+  font-size: 1.75rem;
+}
+
+.preview-meta {
+  font-size: 0.95rem;
+}
+
+@media (max-width: 640px) {
+  .demo-shell {
+    padding: 2rem 1rem;
+  }
+}

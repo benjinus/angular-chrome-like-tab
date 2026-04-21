@@ -1,0 +1,99 @@
+<main class="demo-shell" [class.demo-shell--dark]="theme() === 'dark'">
+  <section class="hero">
+    <p class="eyebrow">Angular Translation</p>
+    <h1>chrome-tabs-gh-pages → rhc-ribbon-layout</h1>
+    <p class="description">
+      现在 tabs 不再只是标题数组。每个标签都会携带自己的模板内容与上下文，
+      由 RHCRibbonLayoutComponent 在内部完成内容视图装配与切换。
+    </p>
+  </section>
+
+  <section class="preview-card">
+    <rhc-ribbon-layout
+      #ribbonLayout
+      [tabs]="tabs()"
+      [initialActiveTabId]="activeTabId()"
+      [theme]="theme()"
+      (activeTabChange)="handleActiveTabChange($event)"
+      (tabsChange)="handleTabsChange($event)"
+    />
+
+    <div class="toolbar">
+      <button type="button" (click)="toggleTheme()">切换主题</button>
+      <button type="button" (click)="toggleIcons()">
+        {{ showIcons() ? '隐藏 icon' : '显示 icon' }}
+      </button>
+      <button type="button" (click)="addTab()">新增标签</button>
+      <button type="button" (click)="closeActiveTab()">关闭当前标签</button>
+      <button type="button" (click)="moveActiveTabLeft()">左移当前标签</button>
+      <button type="button" (click)="moveActiveTabRight()">右移当前标签</button>
+      @for (tab of tabs(); track tab.id) {
+        <button
+          type="button"
+          class="tab-chip"
+          [class.tab-chip--active]="tab.id === activeTabId()"
+          (click)="setActiveTab(tab.id)"
+        >
+          {{ tab.title }}
+        </button>
+      }
+    </div>
+
+    <div class="preview-panel">
+      <p class="preview-label">Current Active Tab</p>
+      <h2>{{ activeTitle() }}</h2>
+      <p class="preview-meta">
+        Theme: {{ theme() }} · Tabs: {{ tabs().length }} · Icons:
+        {{ showIcons() ? 'on' : 'off' }}
+      </p>
+    </div>
+  </section>
+</main>
+
+<ng-template #workspaceTemplate let-data let-tab="tab">
+  <section class="tab-view">
+    <p class="tab-view__eyebrow">{{ tab?.title }}</p>
+    <h3>{{ data.heading }}</h3>
+    <p class="tab-view__body">{{ data.description }}</p>
+    <div class="tab-view__stats">
+      @for (item of data.stats; track item) {
+        <span class="tab-view__stat">{{ item }}</span>
+      }
+    </div>
+  </section>
+</ng-template>
+
+<ng-template #inboxTemplate let-data let-tab="tab">
+  <section class="tab-view">
+    <p class="tab-view__eyebrow">{{ tab?.title }}</p>
+    <h3>{{ data.heading }}</h3>
+    <div class="tab-view__list">
+      @for (mail of data.mails; track mail) {
+        <div class="tab-view__list-item">{{ mail }}</div>
+      }
+    </div>
+  </section>
+</ng-template>
+
+<ng-template #dashboardTemplate let-data let-tab="tab">
+  <section class="tab-view">
+    <p class="tab-view__eyebrow">{{ tab?.title }}</p>
+    <h3>{{ data.heading }}</h3>
+    <div class="tab-view__metrics">
+      @for (metric of data.metrics; track metric.label) {
+        <article class="tab-view__metric-card">
+          <span class="tab-view__metric-label">{{ metric.label }}</span>
+          <strong class="tab-view__metric-value">{{ metric.value }}</strong>
+        </article>
+      }
+    </div>
+  </section>
+</ng-template>
+
+<ng-template #previewTemplate let-data let-tab="tab">
+  <section class="tab-view">
+    <p class="tab-view__eyebrow">{{ tab?.title }}</p>
+    <h3>{{ data.heading }}</h3>
+    <p class="tab-view__body">{{ data.description }}</p>
+  </section>
+</ng-template>

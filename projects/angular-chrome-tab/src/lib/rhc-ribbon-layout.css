@@ -1,0 +1,296 @@
+:host {
+  display: block;
+  width: 100%;
+  --tab-content-margin: 9px;
+}
+
+.ribbon-tabs-shell {
+  width: 100%;
+}
+
+.ribbon-tabs-shell--dark {
+  color: #edf2ff;
+}
+
+.ribbon-tabs {
+  box-sizing: border-box;
+  position: relative;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif,
+    "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 12px;
+  height: 46px;
+  padding: 8px 3px 4px;
+  background: #dee1e6;
+  border-radius: 5px 5px 0 0;
+  overflow: hidden;
+}
+
+.ribbon-tabs * {
+  box-sizing: inherit;
+  font: inherit;
+}
+
+.ribbon-tabs-content {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  touch-action: pan-y;
+}
+
+.ribbon-tab {
+  position: absolute;
+  left: 0;
+  height: 36px;
+  border: 0;
+  margin: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.ribbon-tab,
+.ribbon-tab * {
+  user-select: none;
+}
+
+.ribbon-tab-content {
+  cursor: pointer;
+}
+
+.ribbon-tab-dividers {
+  position: absolute;
+  top: 7px;
+  bottom: 7px;
+  left: var(--tab-content-margin);
+  right: var(--tab-content-margin);
+}
+
+.ribbon-tab-dividers,
+.ribbon-tab-dividers::before,
+.ribbon-tab-dividers::after {
+  pointer-events: none;
+}
+
+.ribbon-tab-dividers::before,
+.ribbon-tab-dividers::after {
+  content: '';
+  display: block;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: #a9adb0;
+  opacity: 1;
+  transition: opacity 0.2s ease;
+}
+
+.ribbon-tab-dividers::before {
+  left: 0;
+}
+
+.ribbon-tab-dividers::after {
+  right: 0;
+}
+
+.ribbon-tab:first-child .ribbon-tab-dividers::before,
+.ribbon-tab:last-child .ribbon-tab-dividers::after {
+  opacity: 0;
+}
+
+.ribbon-tab-background {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.ribbon-tab-background > svg {
+  width: 100%;
+  height: 100%;
+}
+
+.ribbon-tab-background > svg .ribbon-tab-geometry {
+  fill: #f4f5f6;
+}
+
+.ribbon-tab[active] {
+  z-index: 5;
+}
+
+.ribbon-tab[active] .ribbon-tab-background > svg .ribbon-tab-geometry {
+  fill: #fff;
+}
+
+.ribbon-tab:not([active]) .ribbon-tab-background {
+  transition: opacity 0.2s ease;
+  opacity: 0;
+}
+
+@media (hover: hover) {
+  .ribbon-tab:not([active]):hover {
+    z-index: 2;
+  }
+
+  .ribbon-tab:not([active]):hover .ribbon-tab-background {
+    opacity: 1;
+  }
+}
+
+.ribbon-tab-content {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  top: 0;
+  bottom: 0;
+  left: var(--tab-content-margin);
+  right: var(--tab-content-margin);
+  padding: 9px 12px;
+  border: 0;
+  background: transparent;
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
+  overflow: hidden;
+  pointer-events: all;
+  text-align: left;
+  touch-action: pan-y;
+}
+
+.ribbon-tab--dragging .ribbon-tab-content {
+  cursor: grabbing;
+}
+
+.ribbon-tab[is-mini] .ribbon-tab-content {
+  padding-left: 3px;
+  padding-right: 3px;
+}
+
+.ribbon-tab-content--title-only {
+  justify-content: center;
+}
+
+.ribbon-tab-favicon {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  margin-left: 4px;
+  border-radius: 4px;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 16px;
+}
+
+.ribbon-tab[is-small] .ribbon-tab-favicon {
+  margin-left: 0;
+}
+
+.ribbon-tab[is-mini]:not([active]) .ribbon-tab-favicon {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.ribbon-tab[is-mini][active] .ribbon-tab-favicon {
+  display: none;
+}
+
+.ribbon-tab-title {
+  flex: 1;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  margin-left: 8px;
+  color: #5f6368;
+}
+
+.ribbon-tab:not(.ribbon-tab--has-favicon) .ribbon-tab-title,
+.ribbon-tab[is-small] .ribbon-tab-title {
+  margin-left: 0;
+}
+
+.ribbon-tab-content--title-only .ribbon-tab-title {
+  text-align: center;
+}
+
+.ribbon-tab[is-smaller] .ribbon-tab-title,
+.ribbon-tab[is-mini] .ribbon-tab-title {
+  display: none;
+}
+
+.ribbon-tab[active] .ribbon-tab-title {
+  color: #45474a;
+}
+
+.ribbon-tabs-bottom-bar {
+  position: absolute;
+  bottom: 0;
+  left: 4px;
+  right: 4px;
+  z-index: 10;
+  width: initial;
+  height: 4px;
+  background: #fff;
+}
+
+.ribbon-tabs-dark-theme {
+  background: #202124;
+}
+
+.ribbon-tabs-dark-theme .ribbon-tab-dividers::before,
+.ribbon-tabs-dark-theme .ribbon-tab-dividers::after {
+  background: #4a4d51;
+}
+
+.ribbon-tabs-dark-theme .ribbon-tab-background > svg .ribbon-tab-geometry {
+  fill: #292b2e;
+}
+
+.ribbon-tabs-dark-theme .ribbon-tab[active] .ribbon-tab-background > svg .ribbon-tab-geometry {
+  fill: #323639;
+}
+
+.ribbon-tabs-dark-theme .ribbon-tab-title {
+  color: #9ca1a7;
+}
+
+.ribbon-tabs-dark-theme .ribbon-tab[active] .ribbon-tab-title {
+  color: #f1f3f4;
+}
+
+.ribbon-tabs-dark-theme .ribbon-tabs-bottom-bar {
+    left: 0;
+    right: 0;
+    background: #313949;
+}
+
+.rhc-ribbon-layout-content {
+  min-height: 220px;
+  padding: 1.25rem;
+  border: 4px solid rgba(118, 138, 177, 0.22);
+  border-top: 0;
+  border-radius: 0 0 1rem 1rem;
+  background: rgba(255, 255, 255, 0.92);
+  color: #10203a;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease;
+}
+
+.rhc-ribbon-layout-content--dark {
+  border-color: rgba(95, 108, 138, 0.36);
+  background: rgba(24, 28, 37, 0.94);
+  color: #edf2ff;
+}
+
+.rhc-ribbon-layout-content--empty {
+  display: grid;
+  place-items: center;
+}
+
+.rhc-ribbon-layout-empty-state {
+  color: #70809e;
+  font-size: 0.95rem;
+}
+
+.rhc-ribbon-layout-content--dark .rhc-ribbon-layout-empty-state {
+  color: #a7b6d3;
+}
