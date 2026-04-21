@@ -54,7 +54,7 @@
   height: 40px;
   padding: 5px 6px 0;
   border-radius: 0;
-  background: linear-gradient(180deg, #e7ebf2 0%, #dfe5ee 100%);
+  background: #dee1e6;
   border-bottom: 0;
 }
 
@@ -275,7 +275,7 @@
 .ribbon-tabs--compact .ribbon-tab-content {
   top: 2px;
   bottom: 0;
-  left: 2px;
+  left: 4px;
   right: 2px;
   padding: 6px 10px 6px;
   border-radius: 8px 8px 0 0;
@@ -445,6 +445,9 @@
   padding: 0;
   color: #636d7c;
   background: rgba(233, 237, 243, 0.9);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.35),
+    0 2px 6px rgba(95, 108, 128, 0.12);
   cursor: pointer;
   transition:
     background-color 140ms ease,
@@ -512,7 +515,7 @@
 }
 
 .ribbon-tabs-dark-theme.ribbon-tabs--compact {
-  background: linear-gradient(180deg, #1e232b 0%, #181c23 100%);
+  background: #202124;
   border-bottom: 0;
 }
 
@@ -546,14 +549,14 @@
 }
 
 .ribbon-tabs-dark-theme.ribbon-tabs--compact .ribbon-tab-background {
-  border-color: #3b4350;
-  background: rgba(42, 48, 58, 0.92);
+  border-color: #2b2c2d;
+  background: rgb(36 38 39);;
   opacity: 0;
 }
 
 .ribbon-tabs-dark-theme.ribbon-tabs--compact .ribbon-tab[active] .ribbon-tab-background {
-  border-color: #5a6473;
-  background: #323842;
+  border-color: rgb(50 54 57);
+  background: rgb(50 54 57);
   opacity: 1;
 }
 
@@ -615,7 +618,7 @@
 .ribbon-tabs-dark-theme .ribbon-tabs-bottom-bar {
     left: 0;
     right: 0;
-    background: #323639;
+    background: rgb(50 54 57);
 }
 
 .rhc-ribbon-layout-content {
@@ -629,10 +632,10 @@
 }
 
 .rhc-ribbon-layout-content--dark {
-  border-color: #323639;
+  border-color: rgb(50 54 57);
   background: rgb(50 54 57);
   color: #edf2ff;
-  border-bottom: 2px solid #202124;
+  border-bottom: 2px solid rgb(50 54 57);
 }
 
 .rhc-ribbon-layout-content--compact {
