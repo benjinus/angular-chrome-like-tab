@@ -19,7 +19,7 @@ const TAB_OVERLAP_DISTANCE = TAB_CONTENT_MARGIN * 2 + TAB_CONTENT_OVERLAP_DISTAN
 const TAB_MIN_WIDTH = 96;
 const TAB_CONTENT_MIN_WIDTH = TAB_MIN_WIDTH - TAB_OVERLAP_DISTANCE;
 const TAB_TITLE_FONT =
-  '500 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
+  '500 13px "SF Pro SC","SF Pro Display","SF Pro Icons","PingFang SC","微软雅黑","Microsoft YaHei","Helvetica Neue","Helvetica","Arial",sans-serif';
 const TAB_HORIZONTAL_PADDING = 24;
 const TAB_TITLE_WIDTH_BUFFER = 6;
 const TAB_FAVICON_WIDTH = 16;
@@ -200,6 +200,9 @@ interface RHCRibbonDragState {
   imports: [CommonModule],
   templateUrl: './rhc-ribbon-layout.html',
   styleUrl: './rhc-ribbon-layout.css',
+  host: {
+    '[style.--tab-title-font]': 'tabTitleFont',
+  },
 })
 export class RHCRibbonLayoutComponent implements AfterViewInit, OnDestroy {
   readonly tabs = input<RHCRibbonLayoutTab[]>([]);
@@ -242,6 +245,7 @@ export class RHCRibbonLayoutComponent implements AfterViewInit, OnDestroy {
   });
   protected readonly scrollOffset = signal(0);
   protected readonly isDragging = signal(false);
+  protected readonly tabTitleFont = TAB_TITLE_FONT;
 
   private readonly internalTabs = signal<RHCRibbonLayoutTab[]>([]);
   private readonly activeTabIdState = signal<string | null>(null);

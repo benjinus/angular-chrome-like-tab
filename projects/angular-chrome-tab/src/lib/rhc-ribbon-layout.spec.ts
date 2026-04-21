@@ -137,4 +137,13 @@ describe('RHCRibbonLayoutComponent', () => {
     expect(titleElement).not.toBeNull();
     expect(getComputedStyle(titleElement!).textOverflow).not.toBe('ellipsis');
   });
+
+  it('applies the tab title font sizing from TAB_TITLE_FONT', () => {
+    const titleElement = fixture.nativeElement.querySelector('.ribbon-tab-title') as HTMLElement | null;
+    const computedStyle = getComputedStyle(titleElement!);
+
+    expect(titleElement).not.toBeNull();
+    expect(computedStyle.fontSize).toBe('13px');
+    expect(computedStyle.fontWeight).toBe('500');
+  });
 });

@@ -67,7 +67,7 @@
                 [style.background-image]="'url(' + tab.favicon + ')'"
               ></div>
             }
-            <div class="ribbon-tab-title">{{ tab.title }}</div>
+            <div class="ribbon-tab-title" [style.font]="tabTitleFont">{{ tab.title }}</div>
             @if (tab.showCloseButton) {
               <div
                 class="ribbon-tab-close"
