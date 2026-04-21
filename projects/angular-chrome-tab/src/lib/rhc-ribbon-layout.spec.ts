@@ -216,7 +216,7 @@ describe('RHCRibbonLayoutComponent', () => {
     expect(computedStyle.backgroundColor).toBe('rgba(233, 237, 243, 0.9)');
   });
 
-  it('uses a subtle shadow for the tab bar menu button in light theme', () => {
+  it('does not use a default shadow for the tab bar menu button in light theme', () => {
     fixture.componentRef.setInput('showTabBarMenuButton', true);
     fixture.detectChanges();
 
@@ -224,8 +224,7 @@ describe('RHCRibbonLayoutComponent', () => {
     const computedStyle = getComputedStyle(menuButton!);
 
     expect(menuButton).not.toBeNull();
-    expect(computedStyle.boxShadow).not.toContain('inset');
-    expect(computedStyle.boxShadow).toContain('rgba(95, 108, 128, 0.12)');
+    expect(['', 'none']).toContain(computedStyle.boxShadow);
   });
 
   it('uses dark theme styling for the tab bar menu button when dark theme is active', () => {
