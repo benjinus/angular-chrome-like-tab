@@ -620,6 +620,24 @@ describe('RHCRibbonLayoutComponent tab bar menu overlay', () => {
     expect(overlayMenu?.textContent).toContain('Close');
   });
 
+  it('keeps the menu button in an open visual state while the overlay is visible', () => {
+    const menuButton = fixture.nativeElement.querySelector('.ribbon-tabs-menu-button') as HTMLButtonElement | null;
+
+    expect(menuButton).not.toBeNull();
+    expect(menuButton?.classList.contains('ribbon-tabs-menu-button--open')).toBe(false);
+
+    menuButton?.click();
+    fixture.detectChanges();
+
+    expect(menuButton?.classList.contains('ribbon-tabs-menu-button--open')).toBe(true);
+
+    const closeButton = document.body.querySelector('.test-tab-bar-menu-close') as HTMLButtonElement | null;
+    closeButton?.click();
+    fixture.detectChanges();
+
+    expect(menuButton?.classList.contains('ribbon-tabs-menu-button--open')).toBe(false);
+  });
+
   it('closes the overlay when the template context close callback is used', () => {
     const menuButton = fixture.nativeElement.querySelector('.ribbon-tabs-menu-button') as HTMLButtonElement | null;
 

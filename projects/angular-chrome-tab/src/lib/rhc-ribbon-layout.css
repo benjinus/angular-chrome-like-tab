@@ -446,6 +446,12 @@
   color: #636d7c;
   background: rgba(233, 237, 243, 0.9);
   cursor: pointer;
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    box-shadow 140ms ease,
+    color 140ms ease,
+    transform 140ms ease;
 }
 
 .ribbon-tabs-menu-button svg {
@@ -462,10 +468,16 @@
 }
 
 @media (hover: hover) {
-  .ribbon-tabs-menu-button:hover {
+  .ribbon-tabs-menu-button:hover,
+  .ribbon-tabs-menu-button--open {
     border-color: rgba(160, 170, 184, 0.42);
     background: rgba(243, 246, 250, 0.96);
   }
+}
+
+.ribbon-tabs-menu-button--open {
+  border-color: rgba(160, 170, 184, 0.42);
+  background: rgba(243, 246, 250, 0.96);
 }
 
 .ribbon-tabs-menu-button:active {
@@ -473,7 +485,6 @@
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.3),
     0 1px 4px rgba(95, 108, 128, 0.1);
-  transform: translateY(0);
 }
 
 .ribbon-tabs-menu-overlay {
@@ -556,13 +567,22 @@
 }
 
 @media (hover: hover) {
-  .ribbon-tabs-dark-theme .ribbon-tabs-menu-button:hover {
+  .ribbon-tabs-dark-theme .ribbon-tabs-menu-button:hover,
+  .ribbon-tabs-dark-theme .ribbon-tabs-menu-button--open {
     border-color: rgba(255, 255, 255, 0.04);
     background: rgba(57, 60, 66, 0.95);
     box-shadow:
       0 1px 0 rgba(255, 255, 255, 0.025),
       0 4px 10px rgba(0, 0, 0, 0.16);
   }
+}
+
+.ribbon-tabs-dark-theme .ribbon-tabs-menu-button--open {
+  border-color: rgba(255, 255, 255, 0.04);
+  background: rgba(57, 60, 66, 0.95);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.025),
+    0 4px 10px rgba(0, 0, 0, 0.16);
 }
 
 .ribbon-tabs-dark-theme .ribbon-tabs-menu-button:active {

@@ -98,9 +98,11 @@
       <button
         type="button"
         class="ribbon-tabs-menu-button"
+        [class.ribbon-tabs-menu-button--open]="isTabBarMenuOpen()"
         cdkOverlayOrigin
         #tabBarMenuTrigger="cdkOverlayOrigin"
         aria-label="Tab bar menu"
+        [attr.aria-expanded]="isTabBarMenuOpen()"
         (click)="handleTabBarMenuButtonClick($event)"
       >
         <svg viewBox="0 0 20 20" aria-hidden="true">
