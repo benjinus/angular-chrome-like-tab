@@ -28,7 +28,8 @@
 
 .ribbon-tabs * {
   box-sizing: inherit;
-  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
 }
 
 .ribbon-tabs-content {
@@ -194,9 +195,9 @@
 
 .ribbon-tab-title {
   flex: 1;
-  overflow: hidden;
+  overflow: visible;
   white-space: nowrap;
-  text-overflow: ellipsis;
+  text-overflow: clip;
   margin-left: 8px;
   color: #5f6368;
 }
@@ -217,6 +218,55 @@
 
 .ribbon-tab[active] .ribbon-tab-title {
   color: #45474a;
+}
+
+.ribbon-tab-close {
+  flex: 0 0 auto;
+  position: relative;
+  width: 16px;
+  height: 16px;
+  margin-left: 8px;
+  border-radius: 50%;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'><path stroke='rgba(0, 0, 0, .65)' stroke-linecap='square' stroke-width='1.5' d='M0 0 L8 8 M8 0 L0 8'></path></svg>");
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 8px 8px;
+  pointer-events: all;
+}
+
+@media (hover: hover) {
+  .ribbon-tab-close:hover {
+    background-color: #e8eaed;
+  }
+
+  .ribbon-tab-close:hover:active {
+    background-color: #dadce0;
+  }
+}
+
+@media not all and (hover: hover) {
+  .ribbon-tab-close:active {
+    background-color: #dadce0;
+  }
+}
+
+@media (hover: hover) {
+  .ribbon-tab:not([active]) .ribbon-tab-close:not(:hover):not(:active) {
+    opacity: 0.8;
+  }
+}
+
+.ribbon-tab[is-smaller] .ribbon-tab-close {
+  margin-left: auto;
+}
+
+.ribbon-tab[is-mini]:not([active]) .ribbon-tab-close {
+  display: none;
+}
+
+.ribbon-tab[is-mini][active] .ribbon-tab-close {
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .ribbon-tabs-bottom-bar {
@@ -253,6 +303,20 @@
 
 .ribbon-tabs-dark-theme .ribbon-tab[active] .ribbon-tab-title {
   color: #f1f3f4;
+}
+
+.ribbon-tabs-dark-theme .ribbon-tab-close {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'><path stroke='rgba(154, 160, 166, .8)' stroke-linecap='square' stroke-width='1.5' d='M0 0 L8 8 M8 0 L0 8'></path></svg>");
+}
+
+.ribbon-tabs-dark-theme .ribbon-tab-close:hover {
+  background-color: #5f6368;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'><path stroke='rgba(255, 255, 255, .7)' stroke-linecap='square' stroke-width='1.5' d='M0 0 L8 8 M8 0 L0 8'></path></svg>");
+}
+
+.ribbon-tabs-dark-theme .ribbon-tab-close:hover:active {
+  background-color: #80868b;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'><path stroke='rgba(255, 255, 255, .9)' stroke-linecap='square' stroke-width='1.5' d='M0 0 L8 8 M8 0 L0 8'></path></svg>");
 }
 
 .ribbon-tabs-dark-theme .ribbon-tabs-bottom-bar {

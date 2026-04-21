@@ -51,7 +51,7 @@
           <button
             type="button"
             class="ribbon-tab-content"
-            [class.ribbon-tab-content--title-only]="!tab.favicon"
+            [class.ribbon-tab-content--title-only]="!tab.favicon && !tab.showCloseButton"
             role="tab"
             [attr.aria-label]="tab.title"
             (click)="selectTab(tab.id, $event)"
@@ -68,6 +68,15 @@
               ></div>
             }
             <div class="ribbon-tab-title">{{ tab.title }}</div>
+            @if (tab.showCloseButton) {
+              <div
+                class="ribbon-tab-close"
+                aria-label="Close tab"
+                title="Close tab"
+                (pointerdown)="handleCloseButtonPointerDown($event)"
+                (click)="closeTabFromButton(tab.id, $event)"
+              ></div>
+            }
           </button>
         </div>
       }

@@ -16,8 +16,8 @@
     "module": "preserve",
     "paths": {
       "angular-chrome-tab": [
-        "./dist/angular-chrome-tab",
-        "./projects/angular-chrome-tab/src/public-api.ts"
+        "./projects/angular-chrome-tab/src/public-api.ts",
+        "./dist/angular-chrome-tab"
       ]
     }
   },

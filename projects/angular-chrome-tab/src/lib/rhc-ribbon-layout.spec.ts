@@ -72,4 +72,69 @@ describe('RHCRibbonLayoutComponent', () => {
     expect(faviconElement).not.toBeNull();
     expect(faviconElement?.hasAttribute('hidden')).toBe(false);
   });
+
+  it('does not render close buttons by default', () => {
+    expect(fixture.nativeElement.querySelectorAll('.ribbon-tab-close').length).toBe(0);
+  });
+
+  it('renders a close button only for tabs with showCloseButton enabled', () => {
+    fixture.componentRef.setInput('tabs', [
+      { id: '1', title: 'One' },
+      { id: '2', title: 'Closable', showCloseButton: true },
+    ]);
+    fixture.detectChanges();
+
+    const tabElements = Array.from(fixture.nativeElement.querySelectorAll('.ribbon-tab'));
+    const firstTab = tabElements[0] as HTMLElement;
+    const closableTab = tabElements[1] as HTMLElement;
+
+    expect(firstTab.querySelector('.ribbon-tab-close')).toBeNull();
+    expect(closableTab.querySelector('.ribbon-tab-close')).not.toBeNull();
+  });
+
+  it('emits tabClose and removes the tab when its close button is clicked', () => {
+    fixture.componentRef.setInput('tabs', [
+      { id: '1', title: 'One' },
+      { id: '2', title: 'Closable', showCloseButton: true },
+    ]);
+    fixture.componentRef.setInput('initialActiveTabId', '2');
+    fixture.detectChanges();
+
+    const emitSpy = vi.spyOn(component.tabClose, 'emit');
+    const closeButton = fixture.nativeElement.querySelector('.ribbon-tab-close') as HTMLElement | null;
+
+    expect(closeButton).not.toBeNull();
+
+    closeButton?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    fixture.detectChanges();
+
+    expect(emitSpy).toHaveBeenCalledWith({
+      tab: expect.objectContaining({ id: '2', title: 'Closable', showCloseButton: true }),
+      index: 1,
+    });
+    expect(fixture.nativeElement.querySelectorAll('.ribbon-tab').length).toBe(1);
+  });
+
+  it('sizes tabs from measured title width instead of clamping long titles', () => {
+    fixture.componentRef.setInput('tabs', [
+      {
+        id: '1',
+        title:
+          'A very long ribbon tab title that should keep expanding instead of being capped with an ellipsis',
+      },
+    ]);
+    fixture.detectChanges();
+
+    const tabElement = fixture.nativeElement.querySelector('.ribbon-tab') as HTMLElement | null;
+    const width = Number.parseFloat(tabElement?.style.width ?? '0');
+
+    expect(width).toBeGreaterThan(300);
+  });
+
+  it('does not apply ellipsis styling to tab titles', () => {
+    const titleElement = fixture.nativeElement.querySelector('.ribbon-tab-title') as HTMLElement | null;
+
+    expect(titleElement).not.toBeNull();
+    expect(getComputedStyle(titleElement!).textOverflow).not.toBe('ellipsis');
+  });
 });

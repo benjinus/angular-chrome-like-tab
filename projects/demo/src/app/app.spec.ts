@@ -76,4 +76,28 @@ describe('App', () => {
 
     expect(compiled.querySelectorAll('.ribbon-tab-favicon').length).toBeGreaterThan(0);
   });
+
+  it('should add a closable tab from the demo toolbar', async () => {
+    const fixture = TestBed.createComponent(App);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const addClosableButton = Array.from(compiled.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('新增标签页带关闭按钮'),
+    ) as HTMLButtonElement | undefined;
+    const previousTabCount = compiled.querySelectorAll('.ribbon-tab').length;
+    const previousCloseButtonCount = compiled.querySelectorAll('.ribbon-tab-close').length;
+
+    expect(addClosableButton).toBeTruthy();
+
+    addClosableButton?.click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(compiled.querySelectorAll('.ribbon-tab').length).toBe(previousTabCount + 1);
+    expect(compiled.querySelectorAll('.ribbon-tab-close').length).toBe(previousCloseButtonCount + 1);
+  });
 });

@@ -18,13 +18,15 @@ const TAB_CONTENT_OVERLAP_DISTANCE = 1;
 const TAB_OVERLAP_DISTANCE = TAB_CONTENT_MARGIN * 2 + TAB_CONTENT_OVERLAP_DISTANCE;
 const TAB_MIN_WIDTH = 96;
 const TAB_CONTENT_MIN_WIDTH = TAB_MIN_WIDTH - TAB_OVERLAP_DISTANCE;
-const TAB_CONTENT_MAX_WIDTH = 240;
 const TAB_TITLE_FONT =
-  '12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
+  '500 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
 const TAB_HORIZONTAL_PADDING = 24;
+const TAB_TITLE_WIDTH_BUFFER = 6;
 const TAB_FAVICON_WIDTH = 16;
 const TAB_FAVICON_GAP = 8;
 const TAB_FAVICON_OFFSET = 4;
+const TAB_CLOSE_BUTTON_WIDTH = 16;
+const TAB_CLOSE_BUTTON_GAP = 8;
 const TAB_SIZE_SMALL = TAB_CONTENT_MIN_WIDTH + 1;
 const TAB_SIZE_SMALLER = 60;
 const TAB_SIZE_MINI = 48;
@@ -36,6 +38,7 @@ export interface RHCRibbonTabItem {
   id: string;
   title: string;
   favicon?: string | null;
+  showCloseButton?: boolean;
 }
 
 export type RHCRibbonTabTheme = 'light' | 'dark';
@@ -50,6 +53,7 @@ export class RHCRibbonLayoutTab<TContext = unknown> implements RHCRibbonTabItem 
   id: string;
   title: string;
   favicon?: string | null;
+  showCloseButton: boolean;
   contentTemplate: TemplateRef<RHCRibbonLayoutTabContentContext<TContext>> | null;
   contentContext: TContext | null;
   contentContainerClass?: string;
@@ -58,6 +62,7 @@ export class RHCRibbonLayoutTab<TContext = unknown> implements RHCRibbonTabItem 
     id: string;
     title: string;
     favicon?: string | null;
+    showCloseButton?: boolean;
     contentTemplate?: TemplateRef<RHCRibbonLayoutTabContentContext<TContext>> | null;
     contentContext?: TContext | null;
     contentContainerClass?: string;
@@ -65,6 +70,7 @@ export class RHCRibbonLayoutTab<TContext = unknown> implements RHCRibbonTabItem 
     this.id = config.id;
     this.title = config.title;
     this.favicon = config.favicon ?? null;
+    this.showCloseButton = config.showCloseButton ?? false;
     this.contentTemplate = config.contentTemplate ?? null;
     this.contentContext = config.contentContext ?? null;
     this.contentContainerClass = config.contentContainerClass;
@@ -141,11 +147,15 @@ function buildTabContentWidths(tabs: RHCRibbonLayoutTab[]): number[] {
     const faviconWidth = tab.favicon
       ? TAB_FAVICON_OFFSET + TAB_FAVICON_WIDTH + TAB_FAVICON_GAP
       : 0;
+    const closeButtonWidth = tab.showCloseButton ? TAB_CLOSE_BUTTON_WIDTH + TAB_CLOSE_BUTTON_GAP : 0;
 
-    return clamp(
-      TAB_HORIZONTAL_PADDING + faviconWidth + titleWidth,
+    return Math.max(
       TAB_CONTENT_MIN_WIDTH,
-      TAB_CONTENT_MAX_WIDTH,
+      TAB_HORIZONTAL_PADDING +
+        faviconWidth +
+        titleWidth +
+        TAB_TITLE_WIDTH_BUFFER +
+        closeButtonWidth,
     );
   });
 }
@@ -158,7 +168,7 @@ function buildRenderedTabs(
   let contentPosition = TAB_CONTENT_MARGIN;
 
   return tabs.map((tab, index) => {
-    const contentWidth = contentWidths[index] ?? TAB_CONTENT_MAX_WIDTH;
+    const contentWidth = contentWidths[index] ?? TAB_CONTENT_MIN_WIDTH;
     const position = contentPosition - index * TAB_CONTENT_OVERLAP_DISTANCE - TAB_CONTENT_MARGIN;
     contentPosition += contentWidth;
 
@@ -508,6 +518,17 @@ export class RHCRibbonLayoutComponent implements AfterViewInit, OnDestroy {
     if (this.isOutOfBounds(this.scrollOffset())) {
       this.startBounceToBounds();
     }
+  }
+
+  protected handleCloseButtonPointerDown(event: PointerEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  protected closeTabFromButton(tabId: string, event: MouseEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.closeTab(tabId);
   }
 
   private startFling(initialVelocity: number): void {

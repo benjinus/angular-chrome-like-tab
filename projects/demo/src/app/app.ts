@@ -125,19 +125,15 @@ export class App implements AfterViewInit {
   }
 
   protected addTab(): void {
-    const labelIndex = this.tabs().length + 1;
-    const nextTab = this.createTab({
-      id: `tab-${labelIndex}`,
-      title: `Preview ${labelIndex}`,
-      favicon: createFavicon('#7b61ff', String(labelIndex).slice(-1)),
-      contentTemplate: this.previewTemplate ?? null,
-      contentContext: {
-        heading: `Preview ${labelIndex}`,
-        description: 'This tab body is rendered by RHCRibbonLayoutComponent via ngTemplateOutlet.',
-      },
-    });
+    this.ribbonLayout?.addTab(this.buildPreviewTab());
+  }
 
-    this.ribbonLayout?.addTab(nextTab);
+  protected addClosableTab(): void {
+    this.ribbonLayout?.addTab(
+      this.buildPreviewTab({
+        showCloseButton: true,
+      }),
+    );
   }
 
   protected closeActiveTab(): void {
@@ -181,6 +177,7 @@ export class App implements AfterViewInit {
     id: string;
     title: string;
     favicon?: string | null;
+    showCloseButton?: boolean;
     contentTemplate?: RHCRibbonLayoutTab<TContext>['contentTemplate'];
     contentContext?: TContext | null;
     contentContainerClass?: string;
@@ -203,5 +200,26 @@ export class App implements AfterViewInit {
           favicon: this.showIcons() ? this.tabIcons.get(tab.id) ?? null : null,
         }),
     );
+  }
+
+  private buildPreviewTab(options?: {
+    showCloseButton?: boolean;
+  }): RHCRibbonLayoutTab<{
+    heading: string;
+    description: string;
+  }> {
+    const labelIndex = this.tabs().length + 1;
+
+    return this.createTab({
+      id: `tab-${labelIndex}`,
+      title: `Preview ${labelIndex}`,
+      favicon: createFavicon('#7b61ff', String(labelIndex).slice(-1)),
+      showCloseButton: options?.showCloseButton ?? false,
+      contentTemplate: this.previewTemplate ?? null,
+      contentContext: {
+        heading: `Preview ${labelIndex}`,
+        description: 'This tab body is rendered by RHCRibbonLayoutComponent via ngTemplateOutlet.',
+      },
+    });
   }
 }
