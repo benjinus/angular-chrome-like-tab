@@ -101,6 +101,20 @@ describe('App', () => {
     expect(compiled.querySelectorAll('.ribbon-tab-close').length).toBe(previousCloseButtonCount + 1);
   });
 
+  it('should render a compact file tab example with default close buttons', async () => {
+    const fixture = TestBed.createComponent(App);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const compactCard = compiled.querySelector('.preview-card--compact-demo') as HTMLElement | null;
+
+    expect(compactCard).not.toBeNull();
+    expect(compactCard?.textContent).toContain('Compact File Tabs');
+    expect(compactCard?.querySelectorAll('.ribbon-tab-close').length).toBeGreaterThan(0);
+  });
+
   it('should render event log entries when tab events fire', async () => {
     const fixture = TestBed.createComponent(App);
     fixture.detectChanges();

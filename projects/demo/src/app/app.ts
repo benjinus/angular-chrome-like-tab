@@ -33,8 +33,13 @@ export class App implements AfterViewInit {
   protected readonly showIcons = signal(true);
   protected readonly tabs = signal<RHCRibbonLayoutTab[]>([]);
   protected readonly activeTabId = signal<string | null>('facebook');
+  protected readonly compactTabs = signal<RHCRibbonLayoutTab[]>([]);
+  protected readonly compactActiveTabId = signal<string | null>('reader-main');
   protected readonly activeTitle = computed(
     () => this.tabs().find((tab) => tab.id === this.activeTabId())?.title ?? 'None',
+  );
+  protected readonly compactActiveTitle = computed(
+    () => this.compactTabs().find((tab) => tab.id === this.compactActiveTabId())?.title ?? 'None',
   );
   private readonly tabIcons = new Map<string, string>();
 
@@ -111,6 +116,39 @@ export class App implements AfterViewInit {
         contentContext: {
           heading: 'Angular Integration Notes',
           description: 'Use ng-template content to render each tab body inside the ribbon layout.',
+        },
+      }),
+    ]);
+
+    this.compactTabs.set([
+      this.createTab({
+        id: 'reader-main',
+        title: '2026 Annual Reader Report.pdf',
+        favicon: createFavicon('#0f766e', 'P'),
+        contentTemplate: this.previewTemplate ?? null,
+        contentContext: {
+          heading: 'Primary Reader File',
+          description: 'Compact mode keeps file tabs dense and predictable for document switching.',
+        },
+      }),
+      this.createTab({
+        id: 'reader-appendix',
+        title: 'Appendix-Financial-Models-Internal-Review.xlsx',
+        favicon: createFavicon('#1d6f42', 'X'),
+        contentTemplate: this.previewTemplate ?? null,
+        contentContext: {
+          heading: 'Appendix Workbook',
+          description: 'Long file names are capped and truncated in compact mode.',
+        },
+      }),
+      this.createTab({
+        id: 'reader-notes',
+        title: 'Reviewer Notes.docx',
+        favicon: createFavicon('#2563eb', 'W'),
+        contentTemplate: this.previewTemplate ?? null,
+        contentContext: {
+          heading: 'Review Notes',
+          description: 'Close buttons stay available by default for file-style tabs.',
         },
       }),
     ]);
@@ -195,6 +233,18 @@ export class App implements AfterViewInit {
 
   protected handleTabsChange(tabs: RHCRibbonLayoutTab[]): void {
     this.tabs.set(this.applyIconVisibility(tabs));
+  }
+
+  protected handleCompactTabSelect(event: RHCRibbonLayoutSelectEvent): void {
+    this.compactActiveTabId.set(event.tab?.id ?? null);
+  }
+
+  protected handleCompactTabsChange(tabs: RHCRibbonLayoutTab[]): void {
+    this.compactTabs.set(this.applyIconVisibility(tabs));
+  }
+
+  protected setCompactActiveTab(tabId: string): void {
+    this.compactActiveTabId.set(tabId);
   }
 
   private createTab<TContext>(config: {

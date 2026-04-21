@@ -1,8 +1,13 @@
 <div
   class="ribbon-tabs-shell"
   [class.ribbon-tabs-shell--dark]="theme() === 'dark'"
+  [class.ribbon-tabs-shell--compact]="mode() === 'compact'"
 >
-  <div class="ribbon-tabs" [class.ribbon-tabs-dark-theme]="theme() === 'dark'">
+  <div
+    class="ribbon-tabs"
+    [class.ribbon-tabs-dark-theme]="theme() === 'dark'"
+    [class.ribbon-tabs--compact]="mode() === 'compact'"
+  >
     <div class="ribbon-tabs-content" #content role="tablist" aria-label="Chrome style tabs">
       @for (tab of renderedTabs(); track tab.id) {
         <div
@@ -51,7 +56,7 @@
           <button
             type="button"
             class="ribbon-tab-content"
-            [class.ribbon-tab-content--title-only]="!tab.favicon && !tab.showCloseButton"
+            [class.ribbon-tab-content--title-only]="!tab.favicon && !shouldRenderCloseButton(tab)"
             role="tab"
             [attr.aria-label]="tab.title"
             (click)="selectTab(tab.id, $event)"
@@ -68,7 +73,7 @@
               ></div>
             }
             <div class="ribbon-tab-title" [style.font]="tabTitleFont">{{ tab.title }}</div>
-            @if (tab.showCloseButton) {
+            @if (shouldRenderCloseButton(tab)) {
               <div
                 class="ribbon-tab-close"
                 aria-label="Close tab"
@@ -88,6 +93,7 @@
     class="rhc-ribbon-layout-content"
     [class.rhc-ribbon-layout-content--empty]="!activeTab()"
     [class.rhc-ribbon-layout-content--dark]="theme() === 'dark'"
+    [class.rhc-ribbon-layout-content--compact]="mode() === 'compact'"
     [class]="activeTabContentContainerClass()"
   >
     @if (activeTab(); as activeTab) {

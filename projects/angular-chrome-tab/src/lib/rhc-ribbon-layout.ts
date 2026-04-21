@@ -16,17 +16,28 @@ import {
 const TAB_CONTENT_MARGIN = 9;
 const TAB_CONTENT_OVERLAP_DISTANCE = 1;
 const TAB_OVERLAP_DISTANCE = TAB_CONTENT_MARGIN * 2 + TAB_CONTENT_OVERLAP_DISTANCE;
+const COMPACT_TAB_OUTER_HORIZONTAL_INSET = 1;
+const COMPACT_TAB_GAP = 0;
 const TAB_MIN_WIDTH = 96;
 const TAB_CONTENT_MIN_WIDTH = TAB_MIN_WIDTH - TAB_OVERLAP_DISTANCE;
+const COMPACT_TAB_CONTENT_MIN_WIDTH = 84;
+const COMPACT_TAB_CONTENT_MAX_WIDTH = 176;
 const TAB_TITLE_FONT =
   '500 13px "SF Pro SC","SF Pro Display","SF Pro Icons","PingFang SC","微软雅黑","Microsoft YaHei","Helvetica Neue","Helvetica","Arial",sans-serif';
 const TAB_HORIZONTAL_PADDING = 24;
 const TAB_TITLE_WIDTH_BUFFER = 6;
+const COMPACT_TAB_HORIZONTAL_PADDING = 18;
+const COMPACT_TAB_TITLE_WIDTH_BUFFER = 4;
 const TAB_FAVICON_WIDTH = 16;
 const TAB_FAVICON_GAP = 8;
 const TAB_FAVICON_OFFSET = 4;
+const COMPACT_TAB_FAVICON_WIDTH = 14;
+const COMPACT_TAB_FAVICON_GAP = 6;
+const COMPACT_TAB_FAVICON_OFFSET = 0;
 const TAB_CLOSE_BUTTON_WIDTH = 16;
 const TAB_CLOSE_BUTTON_GAP = 8;
+const COMPACT_TAB_CLOSE_BUTTON_WIDTH = 14;
+const COMPACT_TAB_CLOSE_BUTTON_GAP = 6;
 const TAB_SIZE_SMALL = TAB_CONTENT_MIN_WIDTH + 1;
 const TAB_SIZE_SMALLER = 60;
 const TAB_SIZE_MINI = 48;
@@ -42,6 +53,7 @@ export interface RHCRibbonTabItem {
 }
 
 export type RHCRibbonTabTheme = 'light' | 'dark';
+export type RHCRibbonLayoutMode = 'default' | 'compact';
 export type RHCRibbonLayoutEventType = 'create' | 'remove' | 'select';
 export type RHCRibbonLayoutEventOrigin = 'api' | 'ui';
 export type RHCRibbonLayoutEventListenerType = RHCRibbonLayoutEventType | '*';
@@ -96,7 +108,7 @@ export class RHCRibbonLayoutTab<TContext = unknown> implements RHCRibbonTabItem 
   id: string;
   title: string;
   favicon?: string | null;
-  showCloseButton: boolean;
+  showCloseButton?: boolean;
   contentTemplate: TemplateRef<RHCRibbonLayoutTabContentContext<TContext>> | null;
   contentContext: TContext | null;
   contentContainerClass?: string;
@@ -113,7 +125,7 @@ export class RHCRibbonLayoutTab<TContext = unknown> implements RHCRibbonTabItem 
     this.id = config.id;
     this.title = config.title;
     this.favicon = config.favicon ?? null;
-    this.showCloseButton = config.showCloseButton ?? false;
+    this.showCloseButton = config.showCloseButton;
     this.contentTemplate = config.contentTemplate ?? null;
     this.contentContext = config.contentContext ?? null;
     this.contentContainerClass = config.contentContainerClass;
@@ -184,46 +196,71 @@ function applyOverscrollResistance(
   return value;
 }
 
-function buildTabContentWidths(tabs: RHCRibbonLayoutTab[]): number[] {
+function shouldShowCloseButton(tab: RHCRibbonLayoutTab, mode: RHCRibbonLayoutMode): boolean {
+  return mode === 'compact' ? tab.showCloseButton !== false : tab.showCloseButton === true;
+}
+
+function buildTabContentWidths(
+  tabs: RHCRibbonLayoutTab[],
+  mode: RHCRibbonLayoutMode,
+): number[] {
   return tabs.map((tab) => {
     const titleWidth = Math.ceil(measureTabTitleWidth(tab.title));
     const faviconWidth = tab.favicon
-      ? TAB_FAVICON_OFFSET + TAB_FAVICON_WIDTH + TAB_FAVICON_GAP
+      ? mode === 'compact'
+        ? COMPACT_TAB_FAVICON_OFFSET + COMPACT_TAB_FAVICON_WIDTH + COMPACT_TAB_FAVICON_GAP
+        : TAB_FAVICON_OFFSET + TAB_FAVICON_WIDTH + TAB_FAVICON_GAP
       : 0;
-    const closeButtonWidth = tab.showCloseButton ? TAB_CLOSE_BUTTON_WIDTH + TAB_CLOSE_BUTTON_GAP : 0;
+    const closeButtonWidth = shouldShowCloseButton(tab, mode)
+      ? mode === 'compact'
+        ? COMPACT_TAB_CLOSE_BUTTON_WIDTH + COMPACT_TAB_CLOSE_BUTTON_GAP
+        : TAB_CLOSE_BUTTON_WIDTH + TAB_CLOSE_BUTTON_GAP
+      : 0;
+    const contentWidth =
+      (mode === 'compact' ? COMPACT_TAB_HORIZONTAL_PADDING : TAB_HORIZONTAL_PADDING) +
+      faviconWidth +
+      titleWidth +
+      (mode === 'compact' ? COMPACT_TAB_TITLE_WIDTH_BUFFER : TAB_TITLE_WIDTH_BUFFER) +
+      closeButtonWidth;
 
-    return Math.max(
-      TAB_CONTENT_MIN_WIDTH,
-      TAB_HORIZONTAL_PADDING +
-        faviconWidth +
-        titleWidth +
-        TAB_TITLE_WIDTH_BUFFER +
-        closeButtonWidth,
-    );
+    if (mode === 'compact') {
+      return clamp(contentWidth, COMPACT_TAB_CONTENT_MIN_WIDTH, COMPACT_TAB_CONTENT_MAX_WIDTH);
+    }
+
+    return Math.max(TAB_CONTENT_MIN_WIDTH, contentWidth);
   });
 }
 
 function buildRenderedTabs(
   tabs: RHCRibbonLayoutTab[],
   activeTabId: string | null,
+  mode: RHCRibbonLayoutMode,
 ): RHCRibbonRenderedTab[] {
-  const contentWidths = buildTabContentWidths(tabs);
-  let contentPosition = TAB_CONTENT_MARGIN;
+  const contentWidths = buildTabContentWidths(tabs, mode);
+  let contentPosition = mode === 'compact' ? 0 : TAB_CONTENT_MARGIN;
 
   return tabs.map((tab, index) => {
     const contentWidth = contentWidths[index] ?? TAB_CONTENT_MIN_WIDTH;
-    const position = contentPosition - index * TAB_CONTENT_OVERLAP_DISTANCE - TAB_CONTENT_MARGIN;
-    contentPosition += contentWidth;
+    const width =
+      mode === 'compact'
+        ? contentWidth + COMPACT_TAB_OUTER_HORIZONTAL_INSET * 2
+        : contentWidth + TAB_OVERLAP_DISTANCE;
+    const position =
+      mode === 'compact'
+        ? contentPosition
+        : contentPosition - index * TAB_CONTENT_OVERLAP_DISTANCE - TAB_CONTENT_MARGIN;
+    contentPosition += mode === 'compact' ? width + COMPACT_TAB_GAP : contentWidth;
 
     return {
       ...tab,
-      width: contentWidth + TAB_OVERLAP_DISTANCE,
+      width,
       position,
       active: tab.id === activeTabId,
-      hideFavicon: contentWidth + TAB_OVERLAP_DISTANCE <= TAB_MIN_WIDTH,
-      isSmall: contentWidth < TAB_SIZE_SMALL,
-      isSmaller: contentWidth < TAB_SIZE_SMALLER,
-      isMini: contentWidth < TAB_SIZE_MINI,
+      hideFavicon:
+        mode === 'compact' ? false : contentWidth + TAB_OVERLAP_DISTANCE <= TAB_MIN_WIDTH,
+      isSmall: mode === 'compact' ? false : contentWidth < TAB_SIZE_SMALL,
+      isSmaller: mode === 'compact' ? false : contentWidth < TAB_SIZE_SMALLER,
+      isMini: mode === 'compact' ? false : contentWidth < TAB_SIZE_MINI,
     };
   });
 }
@@ -249,6 +286,7 @@ interface RHCRibbonDragState {
 })
 export class RHCRibbonLayoutComponent implements AfterViewInit, OnDestroy {
   readonly tabs = input<RHCRibbonLayoutTab[]>([]);
+  readonly mode = input<RHCRibbonLayoutMode>('default');
   readonly controlledActiveTabId = input<string | null | undefined>(undefined, {
     alias: 'activeTabId',
   });
@@ -266,7 +304,7 @@ export class RHCRibbonLayoutComponent implements AfterViewInit, OnDestroy {
   }>();
 
   protected readonly renderedTabs = computed(() =>
-    buildRenderedTabs(this.internalTabs(), this.activeTabIdState()),
+    buildRenderedTabs(this.internalTabs(), this.activeTabIdState(), this.mode()),
   );
   protected readonly activeTab = computed(() => {
     const activeTabId = this.activeTabIdState();
@@ -648,6 +686,10 @@ export class RHCRibbonLayoutComponent implements AfterViewInit, OnDestroy {
     event.preventDefault();
     event.stopPropagation();
     this.closeTab(tabId, 'ui');
+  }
+
+  protected shouldRenderCloseButton(tab: RHCRibbonLayoutTab): boolean {
+    return shouldShowCloseButton(tab, this.mode());
   }
 
   private startFling(initialVelocity: number): void {

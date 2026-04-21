@@ -13,6 +13,10 @@
   color: #edf2ff;
 }
 
+.ribbon-tabs-shell--compact {
+  color: #2b3240;
+}
+
 .ribbon-tabs {
   box-sizing: border-box;
   position: relative;
@@ -25,6 +29,14 @@
   background: #dee1e6;
   border-radius: 5px 5px 0 0;
   overflow: hidden;
+}
+
+.ribbon-tabs--compact {
+  height: 38px;
+  padding: 4px 6px 0;
+  border-radius: 0;
+  background: linear-gradient(180deg, #e7ebf2 0%, #dfe5ee 100%);
+  border-bottom: 1px solid #c7d0dc;
 }
 
 .ribbon-tabs * {
@@ -123,9 +135,31 @@
   fill: #fff;
 }
 
+.ribbon-tabs--compact .ribbon-tab-background > svg {
+  display: none;
+}
+
+.ribbon-tabs--compact .ribbon-tab-background {
+  inset: 3px 1px 0;
+  border: 1px solid #c4ccd8;
+  border-bottom: 0;
+  border-radius: 8px 8px 0 0;
+  background: rgba(250, 251, 253, 0.78);
+  opacity: 1;
+}
+
+.ribbon-tabs--compact .ribbon-tab[active] .ribbon-tab-background {
+  background: #ffffff;
+  border-color: #b7c0cc;
+}
+
 .ribbon-tab:not([active]) .ribbon-tab-background {
   transition: opacity 0.2s ease;
   opacity: 0;
+}
+
+.ribbon-tabs--compact .ribbon-tab:not([active]) .ribbon-tab-background {
+  opacity: 1;
 }
 
 @media (hover: hover) {
@@ -157,6 +191,23 @@
   touch-action: pan-y;
 }
 
+.ribbon-tabs--compact .ribbon-tab {
+  height: 31px;
+}
+
+.ribbon-tabs--compact .ribbon-tab-dividers {
+  display: none;
+}
+
+.ribbon-tabs--compact .ribbon-tab-content {
+  top: 3px;
+  bottom: 0;
+  left: 1px;
+  right: 1px;
+  padding: 6px 10px 5px;
+  border-radius: 7px 7px 0 0;
+}
+
 .ribbon-tab--dragging .ribbon-tab-content {
   cursor: grabbing;
 }
@@ -168,6 +219,10 @@
 
 .ribbon-tab-content--title-only {
   justify-content: center;
+}
+
+.ribbon-tabs--compact .ribbon-tab-content--title-only {
+  justify-content: flex-start;
 }
 
 .ribbon-tab-favicon {
@@ -194,6 +249,14 @@
   display: none;
 }
 
+.ribbon-tabs--compact .ribbon-tab-favicon {
+  width: 14px;
+  height: 14px;
+  margin-left: 0;
+  border-radius: 3px;
+  background-size: 14px;
+}
+
 .ribbon-tab-title {
   flex: 1;
   overflow: visible;
@@ -210,6 +273,20 @@
 
 .ribbon-tab-content--title-only .ribbon-tab-title {
   text-align: center;
+}
+
+.ribbon-tabs--compact .ribbon-tab-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-left: 6px;
+}
+
+.ribbon-tabs--compact .ribbon-tab:not(.ribbon-tab--has-favicon) .ribbon-tab-title {
+  margin-left: 0;
+}
+
+.ribbon-tabs--compact .ribbon-tab-content--title-only .ribbon-tab-title {
+  text-align: left;
 }
 
 .ribbon-tab[is-smaller] .ribbon-tab-title,
@@ -233,6 +310,12 @@
   background-repeat: no-repeat;
   background-size: 8px 8px;
   pointer-events: all;
+}
+
+.ribbon-tabs--compact .ribbon-tab-close {
+  width: 14px;
+  height: 14px;
+  margin-left: 6px;
 }
 
 @media (hover: hover) {
@@ -270,11 +353,15 @@
   margin-right: auto;
 }
 
+.ribbon-tabs--compact .ribbon-tabs-bottom-bar {
+  display: none;
+}
+
 .ribbon-tabs-bottom-bar {
   position: absolute;
   bottom: 0;
-  left: 2px;
-  right: 2px;
+  left: 0;
+  right: 0;
   z-index: 10;
   width: initial;
   height: 4px;
@@ -283,6 +370,11 @@
 
 .ribbon-tabs-dark-theme {
   background: #202124;
+}
+
+.ribbon-tabs-dark-theme.ribbon-tabs--compact {
+  background: linear-gradient(180deg, #1e232b 0%, #181c23 100%);
+  border-bottom-color: #353c48;
 }
 
 .ribbon-tabs-dark-theme .ribbon-tab-dividers::before,
@@ -306,6 +398,16 @@
   color: #f1f3f4;
 }
 
+.ribbon-tabs-dark-theme.ribbon-tabs--compact .ribbon-tab-background {
+  border-color: #3b4350;
+  background: rgba(40, 46, 56, 0.88);
+}
+
+.ribbon-tabs-dark-theme.ribbon-tabs--compact .ribbon-tab[active] .ribbon-tab-background {
+  border-color: #5a6473;
+  background: #2f3540;
+}
+
 .ribbon-tabs-dark-theme .ribbon-tab-close {
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'><path stroke='rgba(154, 160, 166, .8)' stroke-linecap='square' stroke-width='1.5' d='M0 0 L8 8 M8 0 L0 8'></path></svg>");
 }
@@ -327,10 +429,7 @@
 }
 
 .rhc-ribbon-layout-content {
-  padding: 1.25rem;
-  border: 2px solid rgba(118, 138, 177, 0.22);
-  border-top: 0;
-  border-radius: 0 0 1rem 1rem;
+  padding: 0.25rem 1.25rem;
   background: rgba(255, 255, 255, 0.92);
   color: #10203a;
   transition:
@@ -341,8 +440,17 @@
 
 .rhc-ribbon-layout-content--dark {
   border-color: #323639;
-  background: rgba(24, 28, 37, 0.94);
+  background: rgb(50 54 57);
   color: #edf2ff;
+  border-bottom: 2px solid #202124;
+}
+
+.rhc-ribbon-layout-content--compact {
+  border-top: 1px solid rgba(118, 138, 177, 0.22);
+}
+
+.rhc-ribbon-layout-content--compact.rhc-ribbon-layout-content--dark {
+  border-top-color: #323639;
 }
 
 .rhc-ribbon-layout-content--empty {

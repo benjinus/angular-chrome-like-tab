@@ -66,6 +66,47 @@
       </div>
     </section>
   </section>
+
+  <section class="preview-card preview-card--compact-demo">
+    <section class="hero hero--inline">
+      <p class="eyebrow">Compact File Tabs</p>
+      <h2>compact mode 用于阅读器/编辑器文件标签栏</h2>
+      <p class="description">
+        这一栏和上面的菜单标签页分开设计。compact 模式会切到文件标签的矩形风格，
+        默认显示关闭按钮，并对长文件名做省略处理。
+      </p>
+    </section>
+
+    <rhc-ribbon-layout
+      [mode]="'compact'"
+      [tabs]="compactTabs()"
+      [activeTabId]="compactActiveTabId()"
+      [theme]="theme()"
+      (tabSelect)="handleCompactTabSelect($event)"
+      (tabsChange)="handleCompactTabsChange($event)"
+    />
+
+    <div class="toolbar">
+      @for (tab of compactTabs(); track tab.id) {
+        <button
+          type="button"
+          class="tab-chip"
+          [class.tab-chip--active]="tab.id === compactActiveTabId()"
+          (click)="setCompactActiveTab(tab.id)"
+        >
+          {{ tab.title }}
+        </button>
+      }
+    </div>
+
+    <div class="preview-panel">
+      <p class="preview-label">Current Compact Tab</p>
+      <h2>{{ compactActiveTitle() }}</h2>
+      <p class="preview-meta">
+        Theme: {{ theme() }} · Tabs: {{ compactTabs().length }} · Mode: compact
+      </p>
+    </div>
+  </section>
 </main>
 
 <ng-template #workspaceTemplate let-data let-tab="tab">

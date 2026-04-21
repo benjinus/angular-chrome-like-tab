@@ -31,6 +31,19 @@
   margin-bottom: 1.5rem;
 }
 
+.hero--inline {
+  margin-bottom: 1rem;
+}
+
+.hero--inline h2 {
+  margin: 0;
+  font-size: clamp(1.7rem, 3vw, 2.35rem);
+}
+
+.preview-card--compact-demo {
+  margin-top: 1.5rem;
+}
+
 .eyebrow {
   margin: 0 0 0.75rem;
   font-size: 0.8rem;

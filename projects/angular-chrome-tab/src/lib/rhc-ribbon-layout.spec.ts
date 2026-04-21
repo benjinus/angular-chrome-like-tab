@@ -152,6 +152,81 @@ describe('RHCRibbonLayoutComponent', () => {
     expect(computedStyle.fontWeight).toBe('500');
   });
 
+  it('applies compact mode at the component level', () => {
+    fixture.componentRef.setInput('mode', 'compact');
+    fixture.detectChanges();
+
+    const tabsRoot = fixture.nativeElement.querySelector('.ribbon-tabs') as HTMLElement | null;
+    expect(tabsRoot?.classList.contains('ribbon-tabs--compact')).toBe(true);
+  });
+
+  it('shows close buttons by default in compact mode', () => {
+    fixture.componentRef.setInput('mode', 'compact');
+    fixture.componentRef.setInput('tabs', [
+      { id: '1', title: 'Report.pdf' },
+      { id: '2', title: 'Appendix.pdf' },
+    ]);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelectorAll('.ribbon-tab-close').length).toBe(2);
+  });
+
+  it('allows compact tabs to explicitly disable the default close button', () => {
+    fixture.componentRef.setInput('mode', 'compact');
+    fixture.componentRef.setInput('tabs', [
+      { id: '1', title: 'Report.pdf', showCloseButton: false },
+      { id: '2', title: 'Appendix.pdf' },
+    ]);
+    fixture.detectChanges();
+
+    const tabElements = Array.from(fixture.nativeElement.querySelectorAll('.ribbon-tab'));
+    const firstTab = tabElements[0] as HTMLElement;
+    const secondTab = tabElements[1] as HTMLElement;
+
+    expect(firstTab.querySelector('.ribbon-tab-close')).toBeNull();
+    expect(secondTab.querySelector('.ribbon-tab-close')).not.toBeNull();
+  });
+
+  it('uses ellipsis title behavior and a capped width in compact mode', () => {
+    fixture.componentRef.setInput('mode', 'compact');
+    fixture.componentRef.setInput('tabs', [
+      {
+        id: '1',
+        title:
+          'Quarterly Financial Reader Snapshot Final Version 2026-04-21 Internal Review Document.pdf',
+      },
+    ]);
+    fixture.detectChanges();
+
+    const tabElement = fixture.nativeElement.querySelector('.ribbon-tab') as HTMLElement | null;
+    const titleElement = fixture.nativeElement.querySelector('.ribbon-tab-title') as HTMLElement | null;
+    const width = Number.parseFloat(tabElement?.style.width ?? '0');
+
+    expect(width).toBeLessThan(250);
+    expect(getComputedStyle(titleElement!).textOverflow).toBe('ellipsis');
+  });
+
+  it('lays out compact tabs without overlap between neighbors', () => {
+    fixture.componentRef.setInput('mode', 'compact');
+    fixture.componentRef.setInput('tabs', [
+      { id: '1', title: 'Report.pdf' },
+      { id: '2', title: 'Appendix.pdf' },
+      { id: '3', title: 'Notes.docx' },
+    ]);
+    fixture.detectChanges();
+
+    const tabElements = Array.from(fixture.nativeElement.querySelectorAll('.ribbon-tab')) as HTMLElement[];
+    const firstWidth = Number.parseFloat(tabElements[0]?.style.width ?? '0');
+    const firstX = Number.parseFloat(
+      tabElements[0]?.style.transform.match(/translate3d\(([-\d.]+)px/)?.[1] ?? '0',
+    );
+    const secondX = Number.parseFloat(
+      tabElements[1]?.style.transform.match(/translate3d\(([-\d.]+)px/)?.[1] ?? '0',
+    );
+
+    expect(secondX).toBeGreaterThanOrEqual(firstX + firstWidth);
+  });
+
   it('emits create lifecycle events and notifies registered create listeners', () => {
     const tabCreateSpy = vi.spyOn(component.tabCreate, 'emit');
     const tabEventSpy = vi.spyOn(component.tabEvent, 'emit');
@@ -224,6 +299,23 @@ describe('RHCRibbonLayoutComponent', () => {
   });
 
   it('switches the active tab when activeTabId input changes', () => {
+    fixture.componentRef.setInput('activeTabId', '2');
+    fixture.detectChanges();
+
+    const tabElements = Array.from(fixture.nativeElement.querySelectorAll('.ribbon-tab'));
+    const firstTab = tabElements[0] as HTMLElement;
+    const secondTab = tabElements[1] as HTMLElement;
+
+    expect(firstTab.hasAttribute('active')).toBe(false);
+    expect(secondTab.hasAttribute('active')).toBe(true);
+  });
+
+  it('switches the active tab from activeTabId input in compact mode', () => {
+    fixture.componentRef.setInput('mode', 'compact');
+    fixture.componentRef.setInput('tabs', [
+      { id: '1', title: 'Report.pdf' },
+      { id: '2', title: 'Appendix.pdf' },
+    ]);
     fixture.componentRef.setInput('activeTabId', '2');
     fixture.detectChanges();
 
