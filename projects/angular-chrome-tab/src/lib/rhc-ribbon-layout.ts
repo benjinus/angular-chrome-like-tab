@@ -1,4 +1,5 @@
 import { CommonModule } from '@angular/common';
+import { ConnectedPosition, OverlayModule } from '@angular/cdk/overlay';
 import {
   AfterViewInit,
   Component,
@@ -16,8 +17,9 @@ import {
 const TAB_CONTENT_MARGIN = 9;
 const TAB_CONTENT_OVERLAP_DISTANCE = 1;
 const TAB_OVERLAP_DISTANCE = TAB_CONTENT_MARGIN * 2 + TAB_CONTENT_OVERLAP_DISTANCE;
-const COMPACT_TAB_OUTER_HORIZONTAL_INSET = 1;
-const COMPACT_TAB_GAP = 0;
+const COMPACT_TAB_CONTENT_MARGIN = 4;
+const COMPACT_TAB_OVERLAP_DISTANCE = 2;
+const COMPACT_TAB_OVERLAP_WIDTH = COMPACT_TAB_CONTENT_MARGIN * 2 + COMPACT_TAB_OVERLAP_DISTANCE;
 const TAB_MIN_WIDTH = 96;
 const TAB_CONTENT_MIN_WIDTH = TAB_MIN_WIDTH - TAB_OVERLAP_DISTANCE;
 const COMPACT_TAB_CONTENT_MIN_WIDTH = 84;
@@ -57,6 +59,24 @@ export type RHCRibbonLayoutMode = 'default' | 'compact';
 export type RHCRibbonLayoutEventType = 'create' | 'remove' | 'select';
 export type RHCRibbonLayoutEventOrigin = 'api' | 'ui';
 export type RHCRibbonLayoutEventListenerType = RHCRibbonLayoutEventType | '*';
+
+export interface RHCRibbonLayoutTabBarMenuContext<TContext = unknown> {
+  $implicit: {
+    activeTabId: string | null;
+    activeTab: RHCRibbonLayoutTab<TContext> | null;
+    tabs: RHCRibbonLayoutTab<TContext>[];
+  };
+  close: () => void;
+}
+
+export interface RHCRibbonLayoutTabBarMenuClickEvent<TContext = unknown> {
+  origin: 'ui';
+  hasTemplate: boolean;
+  isOpen: boolean;
+  activeTabId: string | null;
+  tabs: RHCRibbonLayoutTab<TContext>[];
+  timestamp: number;
+}
 
 export interface RHCRibbonLayoutTabContentContext<TContext = unknown> {
   $implicit: TContext;
@@ -196,8 +216,15 @@ function applyOverscrollResistance(
   return value;
 }
 
-function shouldShowCloseButton(tab: RHCRibbonLayoutTab, mode: RHCRibbonLayoutMode): boolean {
-  return mode === 'compact' ? tab.showCloseButton !== false : tab.showCloseButton === true;
+function shouldShowCloseButton(
+  tab: RHCRibbonLayoutTab | RHCRibbonRenderedTab,
+  mode: RHCRibbonLayoutMode,
+): boolean {
+  if (mode === 'compact') {
+    return ('active' in tab ? tab.active === true : false) && tab.showCloseButton !== false;
+  }
+
+  return tab.showCloseButton === true;
 }
 
 function buildTabContentWidths(
@@ -237,19 +264,19 @@ function buildRenderedTabs(
   mode: RHCRibbonLayoutMode,
 ): RHCRibbonRenderedTab[] {
   const contentWidths = buildTabContentWidths(tabs, mode);
-  let contentPosition = mode === 'compact' ? 0 : TAB_CONTENT_MARGIN;
+  let contentPosition = mode === 'compact' ? COMPACT_TAB_CONTENT_MARGIN : TAB_CONTENT_MARGIN;
 
   return tabs.map((tab, index) => {
     const contentWidth = contentWidths[index] ?? TAB_CONTENT_MIN_WIDTH;
     const width =
       mode === 'compact'
-        ? contentWidth + COMPACT_TAB_OUTER_HORIZONTAL_INSET * 2
+        ? contentWidth + COMPACT_TAB_OVERLAP_WIDTH
         : contentWidth + TAB_OVERLAP_DISTANCE;
     const position =
       mode === 'compact'
-        ? contentPosition
+        ? contentPosition - index * COMPACT_TAB_OVERLAP_DISTANCE - COMPACT_TAB_CONTENT_MARGIN
         : contentPosition - index * TAB_CONTENT_OVERLAP_DISTANCE - TAB_CONTENT_MARGIN;
-    contentPosition += mode === 'compact' ? width + COMPACT_TAB_GAP : contentWidth;
+    contentPosition += contentWidth;
 
     return {
       ...tab,
@@ -277,7 +304,7 @@ interface RHCRibbonDragState {
 @Component({
   selector: 'rhc-ribbon-layout',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, OverlayModule],
   templateUrl: './rhc-ribbon-layout.html',
   styleUrl: './rhc-ribbon-layout.css',
   host: {
@@ -287,6 +314,8 @@ interface RHCRibbonDragState {
 export class RHCRibbonLayoutComponent implements AfterViewInit, OnDestroy {
   readonly tabs = input<RHCRibbonLayoutTab[]>([]);
   readonly mode = input<RHCRibbonLayoutMode>('default');
+  readonly showTabBarMenuButton = input(false);
+  readonly tabBarMenuTemplate = input<TemplateRef<RHCRibbonLayoutTabBarMenuContext> | null>(null);
   readonly controlledActiveTabId = input<string | null | undefined>(undefined, {
     alias: 'activeTabId',
   });
@@ -296,6 +325,7 @@ export class RHCRibbonLayoutComponent implements AfterViewInit, OnDestroy {
   readonly tabCreate = output<RHCRibbonLayoutCreateEvent>();
   readonly tabRemove = output<RHCRibbonLayoutRemoveEvent>();
   readonly tabSelect = output<RHCRibbonLayoutSelectEvent>();
+  readonly tabBarMenuClick = output<RHCRibbonLayoutTabBarMenuClickEvent>();
   readonly tabsChange = output<RHCRibbonLayoutTab[]>();
   readonly tabReorder = output<{
     tab: RHCRibbonLayoutTab;
@@ -328,9 +358,34 @@ export class RHCRibbonLayoutComponent implements AfterViewInit, OnDestroy {
       active: !!activeTab,
     };
   });
+  protected readonly tabBarMenuContext = computed<RHCRibbonLayoutTabBarMenuContext>(() => ({
+    $implicit: {
+      activeTabId: this.activeTabIdState(),
+      activeTab: this.activeTab(),
+      tabs: this.internalTabs(),
+    },
+    close: () => this.closeTabBarMenu(),
+  }));
   protected readonly scrollOffset = signal(0);
   protected readonly isDragging = signal(false);
+  protected readonly isTabBarMenuOpen = signal(false);
   protected readonly tabTitleFont = TAB_TITLE_FONT;
+  protected readonly tabBarMenuPositions: ConnectedPosition[] = [
+    {
+      originX: 'end',
+      originY: 'bottom',
+      overlayX: 'end',
+      overlayY: 'top',
+      offsetY: 8,
+    },
+    {
+      originX: 'end',
+      originY: 'top',
+      overlayX: 'end',
+      overlayY: 'bottom',
+      offsetY: -8,
+    },
+  ];
 
   private readonly internalTabs = signal<RHCRibbonLayoutTab[]>([]);
   private readonly activeTabIdState = signal<string | null>(null);
@@ -686,6 +741,28 @@ export class RHCRibbonLayoutComponent implements AfterViewInit, OnDestroy {
     event.preventDefault();
     event.stopPropagation();
     this.closeTab(tabId, 'ui');
+  }
+
+  protected handleTabBarMenuButtonClick(event: MouseEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const hasTemplate = !!this.tabBarMenuTemplate();
+    const nextOpen = hasTemplate ? !this.isTabBarMenuOpen() : false;
+
+    this.isTabBarMenuOpen.set(nextOpen);
+    this.tabBarMenuClick.emit({
+      origin: 'ui',
+      hasTemplate,
+      isOpen: nextOpen,
+      activeTabId: this.activeTabIdState(),
+      tabs: this.internalTabs(),
+      timestamp: Date.now(),
+    });
+  }
+
+  protected closeTabBarMenu(): void {
+    this.isTabBarMenuOpen.set(false);
   }
 
   protected shouldRenderCloseButton(tab: RHCRibbonLayoutTab): boolean {

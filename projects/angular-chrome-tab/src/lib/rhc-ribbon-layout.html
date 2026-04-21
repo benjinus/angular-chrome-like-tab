@@ -7,7 +7,11 @@
     class="ribbon-tabs"
     [class.ribbon-tabs-dark-theme]="theme() === 'dark'"
     [class.ribbon-tabs--compact]="mode() === 'compact'"
+    [class.ribbon-tabs--with-menu]="mode() !== 'compact' && showTabBarMenuButton()"
   >
+    @if (mode() !== 'compact' && showTabBarMenuButton() && scrollOffset() > 0) {
+      <div class="ribbon-tabs-leading-mask" aria-hidden="true"></div>
+    }
     <div class="ribbon-tabs-content" #content role="tablist" aria-label="Chrome style tabs">
       @for (tab of renderedTabs(); track tab.id) {
         <div
@@ -53,6 +57,9 @@
               </g>
             </svg>
           </div>
+          @if (mode() === 'compact' && !tab.active) {
+            <div class="ribbon-tab-hover-overlay" aria-hidden="true"></div>
+          }
           <button
             type="button"
             class="ribbon-tab-content"
@@ -86,6 +93,40 @@
         </div>
       }
     </div>
+    @if (mode() !== 'compact' && showTabBarMenuButton()) {
+      <div class="ribbon-tabs-menu-mask" aria-hidden="true"></div>
+      <button
+        type="button"
+        class="ribbon-tabs-menu-button"
+        cdkOverlayOrigin
+        #tabBarMenuTrigger="cdkOverlayOrigin"
+        aria-label="Tab bar menu"
+        (click)="handleTabBarMenuButtonClick($event)"
+      >
+        <svg viewBox="0 0 20 20" aria-hidden="true">
+          <path d="M5.6 7.4 10 11.8l4.4-4.4" />
+        </svg>
+      </button>
+      @if (tabBarMenuTemplate(); as tabBarMenuTemplate) {
+        <ng-template
+          cdkConnectedOverlay
+          [cdkConnectedOverlayOrigin]="tabBarMenuTrigger"
+          [cdkConnectedOverlayOpen]="isTabBarMenuOpen()"
+          [cdkConnectedOverlayHasBackdrop]="true"
+          [cdkConnectedOverlayBackdropClass]="'cdk-overlay-transparent-backdrop'"
+          [cdkConnectedOverlayPositions]="tabBarMenuPositions"
+          (backdropClick)="closeTabBarMenu()"
+          (detach)="closeTabBarMenu()"
+        >
+          <div class="ribbon-tabs-menu-overlay" (click)="$event.stopPropagation()">
+            <ng-container
+              [ngTemplateOutlet]="tabBarMenuTemplate"
+              [ngTemplateOutletContext]="tabBarMenuContext()"
+            />
+          </div>
+        </ng-template>
+      }
+    }
     <div class="ribbon-tabs-bottom-bar"></div>
   </div>
 

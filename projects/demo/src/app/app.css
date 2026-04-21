@@ -182,6 +182,29 @@ button:hover {
   background: rgba(20, 24, 33, 0.72);
 }
 
+.demo-tab-bar-menu {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.demo-tab-bar-menu__item {
+  width: 100%;
+  justify-content: flex-start;
+  border-radius: 0.8rem;
+  text-align: left;
+}
+
+.demo-tab-bar-menu__meta {
+  margin: 0.35rem 0 0;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: #6f809d;
+}
+
+.demo-shell--dark .demo-tab-bar-menu__meta {
+  color: #a6b4d0;
+}
+
 .tab-view {
   display: grid;
   gap: 1rem;

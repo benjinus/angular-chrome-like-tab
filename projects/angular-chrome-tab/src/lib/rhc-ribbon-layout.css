@@ -3,6 +3,22 @@
   width: 100%;
   --tab-content-margin: 9px;
   --tab-title-font: 500 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --tab-bar-menu-reserved-width: 60px;
+  --tab-bar-menu-button-inset: 6px;
+  --tab-bar-menu-button-size: 32px;
+  --tab-bar-menu-button-radius: 14px;
+  --tab-bar-menu-icon-size: 16px;
+  --tab-bar-mask-height: 36px;
+  --tab-bar-trailing-mask-width: 52px;
+  --tab-bar-trailing-mask-right: 38px;
+  --tab-bar-trailing-mask-solid-stop: 78%;
+  --tab-bar-leading-mask-width: 40px;
+  --tab-bar-leading-mask-solid-stop: 18%;
+  --tab-bar-mask-color: 222, 225, 230;
+  --compact-tab-hover-overlay-inset: 2px;
+  --compact-tab-hover-overlay-radius: 8px;
+  --compact-tab-hover-mask-opacity: 0.42;
+  --compact-tab-hover-mask-color: 223, 229, 238;
 }
 
 .ribbon-tabs-shell {
@@ -11,6 +27,9 @@
 
 .ribbon-tabs-shell--dark {
   color: #edf2ff;
+  --tab-bar-mask-color: 32, 33, 36;
+  --compact-tab-hover-mask-color: 30, 35, 43;
+  --compact-tab-hover-mask-opacity: 0.52;
 }
 
 .ribbon-tabs-shell--compact {
@@ -32,17 +51,52 @@
 }
 
 .ribbon-tabs--compact {
-  height: 38px;
-  padding: 4px 6px 0;
+  height: 40px;
+  padding: 5px 6px 0;
   border-radius: 0;
   background: linear-gradient(180deg, #e7ebf2 0%, #dfe5ee 100%);
-  border-bottom: 1px solid #c7d0dc;
+  border-bottom: 0;
 }
 
 .ribbon-tabs * {
   box-sizing: inherit;
   font-size: 14px;
   font-weight: 500;
+}
+
+.ribbon-tabs--with-menu .ribbon-tabs-content {
+  width: calc(100% - var(--tab-bar-menu-reserved-width));
+  overflow: hidden;
+}
+
+.ribbon-tabs-menu-mask {
+  position: absolute;
+  top: var(--tab-bar-menu-button-inset);
+  right: var(--tab-bar-trailing-mask-right);
+  z-index: 17;
+  width: var(--tab-bar-trailing-mask-width);
+  height: var(--tab-bar-mask-height);
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    rgba(var(--tab-bar-mask-color), 0) 0%,
+    rgba(var(--tab-bar-mask-color), 0.98) var(--tab-bar-trailing-mask-solid-stop)
+  );
+}
+
+.ribbon-tabs-leading-mask {
+  position: absolute;
+  top: var(--tab-bar-menu-button-inset);
+  left: 0;
+  z-index: 17;
+  width: var(--tab-bar-leading-mask-width);
+  height: var(--tab-bar-mask-height);
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    rgba(var(--tab-bar-mask-color), 0.99) var(--tab-bar-leading-mask-solid-stop),
+    rgba(var(--tab-bar-mask-color), 0) 100%
+  );
 }
 
 .ribbon-tabs-content {
@@ -140,26 +194,41 @@
 }
 
 .ribbon-tabs--compact .ribbon-tab-background {
-  inset: 3px 1px 0;
-  border: 1px solid #c4ccd8;
+  inset: 2px 2px 0;
+  border: 1px solid #c6ced9;
   border-bottom: 0;
-  border-radius: 8px 8px 0 0;
-  background: rgba(250, 251, 253, 0.78);
-  opacity: 1;
+  border-radius: 9px 9px 0 0;
+  background: rgba(248, 250, 253, 0.82);
+  opacity: 0;
 }
 
 .ribbon-tabs--compact .ribbon-tab[active] .ribbon-tab-background {
   background: #ffffff;
   border-color: #b7c0cc;
+  opacity: 1;
+}
+
+.ribbon-tab-hover-overlay {
+  position: absolute;
+  inset: var(--compact-tab-hover-overlay-inset) var(--compact-tab-hover-overlay-inset) 0;
+  z-index: 3;
+  border-radius: var(--compact-tab-hover-overlay-radius) var(--compact-tab-hover-overlay-radius) 0 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.16s ease;
+  background: linear-gradient(
+    90deg,
+    rgba(var(--compact-tab-hover-mask-color), var(--compact-tab-hover-mask-opacity)) 0%,
+    rgba(var(--compact-tab-hover-mask-color), calc(var(--compact-tab-hover-mask-opacity) * 0.38)) 16%,
+    rgba(var(--compact-tab-hover-mask-color), calc(var(--compact-tab-hover-mask-opacity) * 0.12)) 50%,
+    rgba(var(--compact-tab-hover-mask-color), calc(var(--compact-tab-hover-mask-opacity) * 0.38)) 84%,
+    rgba(var(--compact-tab-hover-mask-color), var(--compact-tab-hover-mask-opacity)) 100%
+  );
 }
 
 .ribbon-tab:not([active]) .ribbon-tab-background {
   transition: opacity 0.2s ease;
   opacity: 0;
-}
-
-.ribbon-tabs--compact .ribbon-tab:not([active]) .ribbon-tab-background {
-  opacity: 1;
 }
 
 @media (hover: hover) {
@@ -168,6 +237,10 @@
   }
 
   .ribbon-tab:not([active]):hover .ribbon-tab-background {
+    opacity: 1;
+  }
+
+  .ribbon-tabs--compact .ribbon-tab:not([active]):hover .ribbon-tab-hover-overlay {
     opacity: 1;
   }
 }
@@ -192,7 +265,7 @@
 }
 
 .ribbon-tabs--compact .ribbon-tab {
-  height: 31px;
+  height: 33px;
 }
 
 .ribbon-tabs--compact .ribbon-tab-dividers {
@@ -200,12 +273,12 @@
 }
 
 .ribbon-tabs--compact .ribbon-tab-content {
-  top: 3px;
+  top: 2px;
   bottom: 0;
-  left: 1px;
-  right: 1px;
-  padding: 6px 10px 5px;
-  border-radius: 7px 7px 0 0;
+  left: 2px;
+  right: 2px;
+  padding: 6px 10px 6px;
+  border-radius: 8px 8px 0 0;
 }
 
 .ribbon-tab--dragging .ribbon-tab-content {
@@ -279,6 +352,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   margin-left: 6px;
+  color: #7c8697;
 }
 
 .ribbon-tabs--compact .ribbon-tab:not(.ribbon-tab--has-favicon) .ribbon-tab-title {
@@ -296,6 +370,10 @@
 
 .ribbon-tab[active] .ribbon-tab-title {
   color: #45474a;
+}
+
+.ribbon-tabs--compact .ribbon-tab[active] .ribbon-tab-title {
+  color: #24354a;
 }
 
 .ribbon-tab-close {
@@ -353,8 +431,57 @@
   margin-right: auto;
 }
 
-.ribbon-tabs--compact .ribbon-tabs-bottom-bar {
-  display: none;
+.ribbon-tabs-menu-button {
+  position: absolute;
+  top: var(--tab-bar-menu-button-inset);
+  right: var(--tab-bar-menu-button-inset);
+  z-index: 18;
+  display: grid;
+  place-items: center;
+  width: var(--tab-bar-menu-button-size);
+  height: var(--tab-bar-menu-button-size);
+  border: 0;
+  border-radius: var(--tab-bar-menu-button-radius);
+  padding: 0;
+  color: #f5f7fa;
+  background: rgba(78, 80, 85, 0.96);
+  box-shadow:
+    inset 1px 1px 0 rgba(255, 255, 255, 0.06),
+    inset -1px -1px 0 rgba(0, 0, 0, 0.24),
+    0 1px 0 rgba(255, 255, 255, 0.03);
+  cursor: pointer;
+}
+
+.ribbon-tabs-menu-button svg {
+  width: var(--tab-bar-menu-icon-size);
+  height: var(--tab-bar-menu-icon-size);
+}
+
+.ribbon-tabs-menu-button path {
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.2;
+}
+
+@media (hover: hover) {
+  .ribbon-tabs-menu-button:hover {
+    background: rgba(92, 95, 101, 0.98);
+  }
+}
+
+.ribbon-tabs-menu-button:active {
+  background: rgba(64, 66, 71, 0.98);
+}
+
+.ribbon-tabs-menu-overlay {
+  min-width: 220px;
+  padding: 0.5rem;
+  border: 1px solid rgba(127, 139, 161, 0.28);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 18px 48px rgba(41, 53, 76, 0.24);
 }
 
 .ribbon-tabs-bottom-bar {
@@ -374,7 +501,7 @@
 
 .ribbon-tabs-dark-theme.ribbon-tabs--compact {
   background: linear-gradient(180deg, #1e232b 0%, #181c23 100%);
-  border-bottom-color: #353c48;
+  border-bottom: 0;
 }
 
 .ribbon-tabs-dark-theme .ribbon-tab-dividers::before,
@@ -398,14 +525,45 @@
   color: #f1f3f4;
 }
 
+.ribbon-tabs-dark-theme.ribbon-tabs--compact .ribbon-tab-title {
+  color: #7c8596;
+}
+
+.ribbon-tabs-dark-theme.ribbon-tabs--compact .ribbon-tab[active] .ribbon-tab-title {
+  color: #f5f7fb;
+}
+
 .ribbon-tabs-dark-theme.ribbon-tabs--compact .ribbon-tab-background {
   border-color: #3b4350;
-  background: rgba(40, 46, 56, 0.88);
+  background: rgba(42, 48, 58, 0.92);
+  opacity: 0;
 }
 
 .ribbon-tabs-dark-theme.ribbon-tabs--compact .ribbon-tab[active] .ribbon-tab-background {
   border-color: #5a6473;
-  background: #2f3540;
+  background: #323842;
+  opacity: 1;
+}
+
+.ribbon-tabs-dark-theme .ribbon-tabs-menu-button {
+  color: #f1f3f4;
+  background: rgba(74, 76, 82, 0.98);
+}
+
+@media (hover: hover) {
+  .ribbon-tabs-dark-theme .ribbon-tabs-menu-button:hover {
+    background: rgba(91, 94, 101, 0.98);
+  }
+}
+
+.ribbon-tabs-dark-theme .ribbon-tabs-menu-button:active {
+  background: rgba(62, 64, 70, 0.98);
+}
+
+.ribbon-tabs-dark-theme .ribbon-tabs-menu-overlay {
+  border-color: rgba(97, 108, 124, 0.42);
+  background: rgba(38, 42, 50, 0.98);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.36);
 }
 
 .ribbon-tabs-dark-theme .ribbon-tab-close {
@@ -446,11 +604,14 @@
 }
 
 .rhc-ribbon-layout-content--compact {
-  border-top: 1px solid rgba(118, 138, 177, 0.22);
+  border-top: 0;
+  margin-top: -2px;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
 }
 
 .rhc-ribbon-layout-content--compact.rhc-ribbon-layout-content--dark {
-  border-top-color: #323639;
+  border-top: 0;
 }
 
 .rhc-ribbon-layout-content--empty {

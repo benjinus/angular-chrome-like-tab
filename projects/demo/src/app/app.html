@@ -13,7 +13,10 @@
       #ribbonLayout
       [tabs]="tabs()"
       [activeTabId]="activeTabId()"
+      [showTabBarMenuButton]="true"
+      [tabBarMenuTemplate]="tabBarMenuTemplateRef ?? null"
       [theme]="theme()"
+      (tabBarMenuClick)="handleTabBarMenuClick($event)"
       (tabCreate)="handleTabCreate($event)"
       (tabRemove)="handleTabRemove($event)"
       (tabSelect)="handleTabSelect($event)"
@@ -108,6 +111,26 @@
     </div>
   </section>
 </main>
+
+<ng-template #tabBarMenuTemplate let-menu let-close="close">
+  <div class="demo-tab-bar-menu">
+    <button type="button" class="demo-tab-bar-menu__item" (click)="addTab(); close()">
+      New Preview Tab
+    </button>
+    <button type="button" class="demo-tab-bar-menu__item" (click)="addClosableTab(); close()">
+      New Closable Tab
+    </button>
+    <button type="button" class="demo-tab-bar-menu__item" (click)="toggleIcons(); close()">
+      {{ showIcons() ? 'Hide Icons' : 'Show Icons' }}
+    </button>
+    <button type="button" class="demo-tab-bar-menu__item" (click)="close()">
+      Close Menu
+    </button>
+    <p class="demo-tab-bar-menu__meta">
+      Active: {{ menu.activeTab?.title ?? 'None' }} · Tabs: {{ menu.tabs.length }}
+    </p>
+  </div>
+</ng-template>
 
 <ng-template #workspaceTemplate let-data let-tab="tab">
   <section class="tab-view">

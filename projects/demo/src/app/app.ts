@@ -3,6 +3,8 @@ import {
   RHCRibbonLayoutComponent,
   RHCRibbonLayoutCreateEvent,
   RHCRibbonLayoutEvent,
+  RHCRibbonLayoutTabBarMenuClickEvent,
+  RHCRibbonLayoutTabBarMenuContext,
   RHCRibbonLayoutRemoveEvent,
   RHCRibbonLayoutSelectEvent,
   RHCRibbonLayoutTab,
@@ -70,6 +72,9 @@ export class App implements AfterViewInit {
     heading: string;
     description: string;
   }>>;
+
+  @ViewChild('tabBarMenuTemplate', { static: true })
+  protected readonly tabBarMenuTemplateRef?: TemplateRef<RHCRibbonLayoutTabBarMenuContext>;
 
   ngAfterViewInit(): void {
     this.tabs.set([
@@ -229,6 +234,12 @@ export class App implements AfterViewInit {
 
   protected handleTabEvent(event: RHCRibbonLayoutEvent): void {
     this.pushEventLog(`tabEvent · ${event.type} · ${event.origin}`);
+  }
+
+  protected handleTabBarMenuClick(event: RHCRibbonLayoutTabBarMenuClickEvent): void {
+    this.pushEventLog(
+      `tabBarMenuClick · ${event.origin} · ${event.hasTemplate ? 'template' : 'callback'} · open ${event.isOpen}`,
+    );
   }
 
   protected handleTabsChange(tabs: RHCRibbonLayoutTab[]): void {
