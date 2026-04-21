@@ -204,6 +204,56 @@ describe('RHCRibbonLayoutComponent', () => {
     expect(menuButton).not.toBeNull();
   });
 
+  it('uses light theme styling for the tab bar menu button by default', () => {
+    fixture.componentRef.setInput('showTabBarMenuButton', true);
+    fixture.detectChanges();
+
+    const menuButton = fixture.nativeElement.querySelector('.ribbon-tabs-menu-button') as HTMLElement | null;
+    const computedStyle = getComputedStyle(menuButton!);
+
+    expect(menuButton).not.toBeNull();
+    expect(computedStyle.color).toBe('rgb(99, 109, 124)');
+    expect(computedStyle.backgroundColor).toBe('rgba(233, 237, 243, 0.9)');
+  });
+
+  it('uses a subtle shadow for the tab bar menu button in light theme', () => {
+    fixture.componentRef.setInput('showTabBarMenuButton', true);
+    fixture.detectChanges();
+
+    const menuButton = fixture.nativeElement.querySelector('.ribbon-tabs-menu-button') as HTMLElement | null;
+    const computedStyle = getComputedStyle(menuButton!);
+
+    expect(menuButton).not.toBeNull();
+    expect(computedStyle.boxShadow).not.toContain('inset');
+    expect(computedStyle.boxShadow).toContain('rgba(95, 108, 128, 0.12)');
+  });
+
+  it('uses dark theme styling for the tab bar menu button when dark theme is active', () => {
+    fixture.componentRef.setInput('theme', 'dark');
+    fixture.componentRef.setInput('showTabBarMenuButton', true);
+    fixture.detectChanges();
+
+    const menuButton = fixture.nativeElement.querySelector('.ribbon-tabs-menu-button') as HTMLElement | null;
+    const computedStyle = getComputedStyle(menuButton!);
+
+    expect(menuButton).not.toBeNull();
+    expect(computedStyle.color).toBe('rgb(201, 206, 216)');
+    expect(computedStyle.backgroundColor).toBe('rgba(49, 52, 58, 0.92)');
+  });
+
+  it('uses a raised shadow for the tab bar menu button in dark theme', () => {
+    fixture.componentRef.setInput('theme', 'dark');
+    fixture.componentRef.setInput('showTabBarMenuButton', true);
+    fixture.detectChanges();
+
+    const menuButton = fixture.nativeElement.querySelector('.ribbon-tabs-menu-button') as HTMLElement | null;
+    const computedStyle = getComputedStyle(menuButton!);
+
+    expect(menuButton).not.toBeNull();
+    expect(computedStyle.boxShadow).not.toContain('inset');
+    expect(computedStyle.boxShadow).toContain('rgba(0, 0, 0, 0.12)');
+  });
+
   it('clips the tabs content area when the tab bar menu button is enabled', () => {
     fixture.componentRef.setInput('showTabBarMenuButton', true);
     fixture.detectChanges();

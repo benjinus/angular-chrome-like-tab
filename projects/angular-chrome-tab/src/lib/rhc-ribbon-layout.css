@@ -17,8 +17,8 @@
   --tab-bar-mask-color: 222, 225, 230;
   --compact-tab-hover-overlay-inset: 2px;
   --compact-tab-hover-overlay-radius: 8px;
-  --compact-tab-hover-mask-opacity: 0.42;
-  --compact-tab-hover-mask-color: 223, 229, 238;
+  --compact-tab-hover-mask-opacity: 0.18;
+  --compact-tab-hover-mask-color: 224, 229, 237;
 }
 
 .ribbon-tabs-shell {
@@ -29,7 +29,7 @@
   color: #edf2ff;
   --tab-bar-mask-color: 32, 33, 36;
   --compact-tab-hover-mask-color: 30, 35, 43;
-  --compact-tab-hover-mask-opacity: 0.52;
+  --compact-tab-hover-mask-opacity: 0.24;
 }
 
 .ribbon-tabs-shell--compact {
@@ -219,9 +219,9 @@
   background: linear-gradient(
     90deg,
     rgba(var(--compact-tab-hover-mask-color), var(--compact-tab-hover-mask-opacity)) 0%,
-    rgba(var(--compact-tab-hover-mask-color), calc(var(--compact-tab-hover-mask-opacity) * 0.38)) 16%,
-    rgba(var(--compact-tab-hover-mask-color), calc(var(--compact-tab-hover-mask-opacity) * 0.12)) 50%,
-    rgba(var(--compact-tab-hover-mask-color), calc(var(--compact-tab-hover-mask-opacity) * 0.38)) 84%,
+    rgba(var(--compact-tab-hover-mask-color), calc(var(--compact-tab-hover-mask-opacity) * 0.14)) 20%,
+    rgba(var(--compact-tab-hover-mask-color), calc(var(--compact-tab-hover-mask-opacity) * 0.03)) 50%,
+    rgba(var(--compact-tab-hover-mask-color), calc(var(--compact-tab-hover-mask-opacity) * 0.14)) 80%,
     rgba(var(--compact-tab-hover-mask-color), var(--compact-tab-hover-mask-opacity)) 100%
   );
 }
@@ -440,15 +440,11 @@
   place-items: center;
   width: var(--tab-bar-menu-button-size);
   height: var(--tab-bar-menu-button-size);
-  border: 0;
+  border: 1px solid rgba(170, 179, 191, 0.34);
   border-radius: var(--tab-bar-menu-button-radius);
   padding: 0;
-  color: #f5f7fa;
-  background: rgba(78, 80, 85, 0.96);
-  box-shadow:
-    inset 1px 1px 0 rgba(255, 255, 255, 0.06),
-    inset -1px -1px 0 rgba(0, 0, 0, 0.24),
-    0 1px 0 rgba(255, 255, 255, 0.03);
+  color: #636d7c;
+  background: rgba(233, 237, 243, 0.9);
   cursor: pointer;
 }
 
@@ -467,12 +463,17 @@
 
 @media (hover: hover) {
   .ribbon-tabs-menu-button:hover {
-    background: rgba(92, 95, 101, 0.98);
+    border-color: rgba(160, 170, 184, 0.42);
+    background: rgba(243, 246, 250, 0.96);
   }
 }
 
 .ribbon-tabs-menu-button:active {
-  background: rgba(64, 66, 71, 0.98);
+  background: rgba(224, 230, 238, 0.94);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.3),
+    0 1px 4px rgba(95, 108, 128, 0.1);
+  transform: translateY(0);
 }
 
 .ribbon-tabs-menu-overlay {
@@ -546,18 +547,29 @@
 }
 
 .ribbon-tabs-dark-theme .ribbon-tabs-menu-button {
-  color: #f1f3f4;
-  background: rgba(74, 76, 82, 0.98);
+  border-color: rgba(255, 255, 255, 0.025);
+  color: #c9ced8;
+  background: rgba(49, 52, 58, 0.92);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.015),
+    0 2px 6px rgba(0, 0, 0, 0.12);
 }
 
 @media (hover: hover) {
   .ribbon-tabs-dark-theme .ribbon-tabs-menu-button:hover {
-    background: rgba(91, 94, 101, 0.98);
+    border-color: rgba(255, 255, 255, 0.04);
+    background: rgba(57, 60, 66, 0.95);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.025),
+      0 4px 10px rgba(0, 0, 0, 0.16);
   }
 }
 
 .ribbon-tabs-dark-theme .ribbon-tabs-menu-button:active {
-  background: rgba(62, 64, 70, 0.98);
+  background: rgba(45, 48, 54, 0.95);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.015),
+    0 1px 4px rgba(0, 0, 0, 0.12);
 }
 
 .ribbon-tabs-dark-theme .ribbon-tabs-menu-overlay {
