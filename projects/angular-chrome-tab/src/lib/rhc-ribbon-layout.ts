@@ -42,12 +42,55 @@ export interface RHCRibbonTabItem {
 }
 
 export type RHCRibbonTabTheme = 'light' | 'dark';
+export type RHCRibbonLayoutEventType = 'create' | 'remove' | 'select';
+export type RHCRibbonLayoutEventOrigin = 'api' | 'ui';
+export type RHCRibbonLayoutEventListenerType = RHCRibbonLayoutEventType | '*';
 
 export interface RHCRibbonLayoutTabContentContext<TContext = unknown> {
   $implicit: TContext;
   tab: RHCRibbonLayoutTab<TContext> | null;
   active: boolean;
 }
+
+export interface RHCRibbonLayoutEventBase<TContext = unknown> {
+  origin: RHCRibbonLayoutEventOrigin;
+  tabs: RHCRibbonLayoutTab<TContext>[];
+  timestamp: number;
+}
+
+export interface RHCRibbonLayoutCreateEvent<TContext = unknown>
+  extends RHCRibbonLayoutEventBase<TContext> {
+  type: 'create';
+  tab: RHCRibbonLayoutTab<TContext>;
+  index: number;
+  activated: boolean;
+}
+
+export interface RHCRibbonLayoutRemoveEvent<TContext = unknown>
+  extends RHCRibbonLayoutEventBase<TContext> {
+  type: 'remove';
+  tab: RHCRibbonLayoutTab<TContext>;
+  index: number;
+  nextActiveTabId: string | null;
+}
+
+export interface RHCRibbonLayoutSelectEvent<TContext = unknown>
+  extends RHCRibbonLayoutEventBase<TContext> {
+  type: 'select';
+  tab: RHCRibbonLayoutTab<TContext> | null;
+  index: number;
+  previousTab: RHCRibbonLayoutTab<TContext> | null;
+  previousIndex: number;
+}
+
+export type RHCRibbonLayoutEvent<TContext = unknown> =
+  | RHCRibbonLayoutCreateEvent<TContext>
+  | RHCRibbonLayoutRemoveEvent<TContext>
+  | RHCRibbonLayoutSelectEvent<TContext>;
+
+export type RHCRibbonLayoutEventListener<TContext = unknown> = (
+  event: RHCRibbonLayoutEvent<TContext>,
+) => void;
 
 export class RHCRibbonLayoutTab<TContext = unknown> implements RHCRibbonTabItem {
   id: string;
@@ -206,12 +249,16 @@ interface RHCRibbonDragState {
 })
 export class RHCRibbonLayoutComponent implements AfterViewInit, OnDestroy {
   readonly tabs = input<RHCRibbonLayoutTab[]>([]);
+  readonly controlledActiveTabId = input<string | null | undefined>(undefined, {
+    alias: 'activeTabId',
+  });
   readonly initialActiveTabId = input<string | null>(null);
   readonly theme = input<RHCRibbonTabTheme>('light');
-  readonly activeTabChange = output<string | null>();
+  readonly tabEvent = output<RHCRibbonLayoutEvent>();
+  readonly tabCreate = output<RHCRibbonLayoutCreateEvent>();
+  readonly tabRemove = output<RHCRibbonLayoutRemoveEvent>();
+  readonly tabSelect = output<RHCRibbonLayoutSelectEvent>();
   readonly tabsChange = output<RHCRibbonLayoutTab[]>();
-  readonly tabAdd = output<{ tab: RHCRibbonLayoutTab; index: number }>();
-  readonly tabClose = output<{ tab: RHCRibbonLayoutTab; index: number }>();
   readonly tabReorder = output<{
     tab: RHCRibbonLayoutTab;
     previousIndex: number;
@@ -265,6 +312,10 @@ export class RHCRibbonLayoutComponent implements AfterViewInit, OnDestroy {
   private bounceAnimationFrame: number | null = null;
   private suppressClickUntil = 0;
   private hasViewInitialized = false;
+  private readonly eventListeners = new Map<
+    RHCRibbonLayoutEventListenerType,
+    Set<RHCRibbonLayoutEventListener>
+  >();
 
   @ViewChild('content', { static: true })
   private readonly contentRef?: ElementRef<HTMLElement>;
@@ -274,13 +325,14 @@ export class RHCRibbonLayoutComponent implements AfterViewInit, OnDestroy {
       const incomingTabs = this.tabs();
       this.internalTabs.set(incomingTabs);
 
-      const requestedActiveTabId = this.initialActiveTabId();
+      const externalActiveTabId = this.controlledActiveTabId();
+      const requestedActiveTabId =
+        externalActiveTabId !== undefined ? externalActiveTabId : this.initialActiveTabId();
       const currentActiveTabId = this.activeTabIdState();
-      const nextActiveTabId = this.resolveNextActiveTabId(
-        incomingTabs,
-        currentActiveTabId,
-        requestedActiveTabId,
-      );
+      const nextActiveTabId =
+        externalActiveTabId !== undefined
+          ? this.resolveNextActiveTabId(incomingTabs, requestedActiveTabId, requestedActiveTabId)
+          : this.resolveNextActiveTabId(incomingTabs, currentActiveTabId, requestedActiveTabId);
 
       if (nextActiveTabId !== currentActiveTabId) {
         this.activeTabIdState.set(nextActiveTabId);
@@ -351,15 +403,57 @@ export class RHCRibbonLayoutComponent implements AfterViewInit, OnDestroy {
     this.stopBounce();
   }
 
-  public setActiveTab(tabId: string | null): void {
-    const nextActiveTabId = this.resolveNextActiveTabId(this.internalTabs(), tabId, tabId);
+  public addEventListener(
+    type: RHCRibbonLayoutEventListenerType,
+    listener: RHCRibbonLayoutEventListener,
+  ): () => void {
+    const listeners = this.eventListeners.get(type) ?? new Set<RHCRibbonLayoutEventListener>();
+    listeners.add(listener);
+    this.eventListeners.set(type, listeners);
 
-    if (nextActiveTabId === this.activeTabIdState()) {
+    return () => this.removeEventListener(type, listener);
+  }
+
+  public removeEventListener(
+    type: RHCRibbonLayoutEventListenerType,
+    listener: RHCRibbonLayoutEventListener,
+  ): void {
+    const listeners = this.eventListeners.get(type);
+    if (!listeners) {
       return;
     }
 
+    listeners.delete(listener);
+    if (listeners.size === 0) {
+      this.eventListeners.delete(type);
+    }
+  }
+
+  public setActiveTab(tabId: string | null, origin: RHCRibbonLayoutEventOrigin = 'api'): void {
+    const previousActiveTabId = this.activeTabIdState();
+    const nextActiveTabId = this.resolveNextActiveTabId(this.internalTabs(), tabId, tabId);
+
+    if (nextActiveTabId === previousActiveTabId) {
+      return;
+    }
+
+    const tabs = this.internalTabs();
+    const previousTab = previousActiveTabId
+      ? tabs.find((tab) => tab.id === previousActiveTabId) ?? null
+      : null;
+    const nextTab = nextActiveTabId ? tabs.find((tab) => tab.id === nextActiveTabId) ?? null : null;
+
     this.activeTabIdState.set(nextActiveTabId);
-    this.activeTabChange.emit(nextActiveTabId);
+    this.emitLifecycleEvent({
+      type: 'select',
+      origin,
+      tab: nextTab,
+      index: nextTab ? tabs.findIndex((tab) => tab.id === nextTab.id) : -1,
+      previousTab,
+      previousIndex: previousTab ? tabs.findIndex((tab) => tab.id === previousTab.id) : -1,
+      tabs,
+      timestamp: Date.now(),
+    });
   }
 
   public addTab(
@@ -372,10 +466,19 @@ export class RHCRibbonLayoutComponent implements AfterViewInit, OnDestroy {
     const tabs = this.internalTabs();
     const insertIndex = clamp(options?.index ?? tabs.length, 0, tabs.length);
     const nextTabs = [...tabs];
+    const shouldActivate = options?.activate !== false || !this.activeTabIdState();
 
     nextTabs.splice(insertIndex, 0, tab);
     this.commitTabs(nextTabs);
-    this.tabAdd.emit({ tab, index: insertIndex });
+    this.emitLifecycleEvent({
+      type: 'create',
+      origin: 'api',
+      tab,
+      index: insertIndex,
+      activated: shouldActivate,
+      tabs: nextTabs,
+      timestamp: Date.now(),
+    });
 
     if (options?.activate !== false) {
       this.setActiveTab(tab.id);
@@ -384,7 +487,7 @@ export class RHCRibbonLayoutComponent implements AfterViewInit, OnDestroy {
     }
   }
 
-  public closeTab(tabId: string): void {
+  public closeTab(tabId: string, origin: RHCRibbonLayoutEventOrigin = 'api'): void {
     const tabs = this.internalTabs();
     const closeIndex = tabs.findIndex((tab) => tab.id === tabId);
 
@@ -394,16 +497,28 @@ export class RHCRibbonLayoutComponent implements AfterViewInit, OnDestroy {
 
     const closingTab = tabs[closeIndex]!;
     const nextTabs = tabs.filter((tab) => tab.id !== tabId);
+    const nextActiveTabId =
+      this.activeTabIdState() === tabId
+        ? (nextTabs[closeIndex] ?? nextTabs[closeIndex - 1] ?? null)?.id ?? null
+        : this.resolveNextActiveTabId(nextTabs, this.activeTabIdState(), null);
     this.commitTabs(nextTabs);
-    this.tabClose.emit({ tab: closingTab, index: closeIndex });
+    this.emitLifecycleEvent({
+      type: 'remove',
+      origin,
+      tab: closingTab,
+      index: closeIndex,
+      nextActiveTabId,
+      tabs: nextTabs,
+      timestamp: Date.now(),
+    });
 
     if (this.activeTabIdState() === tabId) {
       const fallbackTab = nextTabs[closeIndex] ?? nextTabs[closeIndex - 1] ?? null;
-      this.setActiveTab(fallbackTab?.id ?? null);
+      this.setActiveTab(fallbackTab?.id ?? null, origin);
       return;
     }
 
-    this.setActiveTab(this.resolveNextActiveTabId(nextTabs, this.activeTabIdState(), null));
+    this.setActiveTab(this.resolveNextActiveTabId(nextTabs, this.activeTabIdState(), null), origin);
   }
 
   public reorderTab(tabId: string, targetIndex: number): void {
@@ -441,7 +556,7 @@ export class RHCRibbonLayoutComponent implements AfterViewInit, OnDestroy {
       return;
     }
 
-    this.setActiveTab(tabId);
+    this.setActiveTab(tabId, 'ui');
   }
 
   protected handlePointerDown(event: PointerEvent): void {
@@ -532,7 +647,7 @@ export class RHCRibbonLayoutComponent implements AfterViewInit, OnDestroy {
   protected closeTabFromButton(tabId: string, event: MouseEvent): void {
     event.preventDefault();
     event.stopPropagation();
-    this.closeTab(tabId);
+    this.closeTab(tabId, 'ui');
   }
 
   private startFling(initialVelocity: number): void {
@@ -626,6 +741,38 @@ export class RHCRibbonLayoutComponent implements AfterViewInit, OnDestroy {
 
   private getBoundedScrollOffset(offset: number): number {
     return clamp(offset, 0, this.maxScrollOffset());
+  }
+
+  private emitLifecycleEvent(event: RHCRibbonLayoutEvent): void {
+    switch (event.type) {
+      case 'create':
+        this.tabCreate.emit(event);
+        break;
+      case 'remove':
+        this.tabRemove.emit(event);
+        break;
+      case 'select':
+        this.tabSelect.emit(event);
+        break;
+    }
+
+    this.tabEvent.emit(event);
+    this.notifyEventListeners(event.type, event);
+    this.notifyEventListeners('*', event);
+  }
+
+  private notifyEventListeners(
+    type: RHCRibbonLayoutEventListenerType,
+    event: RHCRibbonLayoutEvent,
+  ): void {
+    const listeners = this.eventListeners.get(type);
+    if (!listeners) {
+      return;
+    }
+
+    for (const listener of listeners) {
+      listener(event);
+    }
   }
 
   private commitTabs(tabs: RHCRibbonLayoutTab[]): void {

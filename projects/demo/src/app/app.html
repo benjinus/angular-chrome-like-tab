@@ -12,9 +12,12 @@
     <rhc-ribbon-layout
       #ribbonLayout
       [tabs]="tabs()"
-      [initialActiveTabId]="activeTabId()"
+      [activeTabId]="activeTabId()"
       [theme]="theme()"
-      (activeTabChange)="handleActiveTabChange($event)"
+      (tabCreate)="handleTabCreate($event)"
+      (tabRemove)="handleTabRemove($event)"
+      (tabSelect)="handleTabSelect($event)"
+      (tabEvent)="handleTabEvent($event)"
       (tabsChange)="handleTabsChange($event)"
     />
 
@@ -48,6 +51,20 @@
         {{ showIcons() ? 'on' : 'off' }}
       </p>
     </div>
+
+    <section class="event-log">
+      <div class="event-log__header">
+        <p class="preview-label">Event Stream</p>
+        <p class="preview-meta">Showing latest {{ eventLog().length }} entries</p>
+      </div>
+      <div class="event-log__list">
+        @for (entry of eventLog(); track $index) {
+          <div class="event-log__item">{{ entry }}</div>
+        } @empty {
+          <div class="event-log__empty">No events yet.</div>
+        }
+      </div>
+    </section>
   </section>
 </main>
 

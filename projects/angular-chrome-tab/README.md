@@ -2,6 +2,80 @@
 
 This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.2.0.
 
+## Usage
+
+`RHCRibbonLayoutComponent` supports controlled tab selection through the
+`activeTabId` input. The external caller owns the current tab id and updates it
+from the `tabSelect` event.
+
+```ts
+import { Component, TemplateRef, ViewChild, signal } from '@angular/core';
+import {
+  RHCRibbonLayoutComponent,
+  RHCRibbonLayoutSelectEvent,
+  RHCRibbonLayoutTab,
+  RHCRibbonLayoutTabContentContext,
+} from 'angular-chrome-tab';
+
+@Component({
+  selector: 'app-example',
+  imports: [RHCRibbonLayoutComponent],
+  template: `
+    <rhc-ribbon-layout
+      [tabs]="tabs()"
+      [activeTabId]="activeTabId()"
+      (tabSelect)="handleTabSelect($event)"
+      (tabsChange)="tabs.set($event)"
+    />
+
+    <button type="button" (click)="activeTabId.set('tab-2')">
+      Switch To Tab 2
+    </button>
+
+    <ng-template #tabContent let-data>
+      <section>{{ data }}</section>
+    </ng-template>
+  `,
+})
+export class ExampleComponent {
+  protected readonly activeTabId = signal<string | null>('tab-1');
+  protected readonly tabs = signal<RHCRibbonLayoutTab[]>([]);
+
+  @ViewChild('tabContent', { static: true })
+  private readonly tabContent?: TemplateRef<RHCRibbonLayoutTabContentContext<string>>;
+
+  ngAfterViewInit(): void {
+    this.tabs.set([
+      new RHCRibbonLayoutTab({
+        id: 'tab-1',
+        title: 'Overview',
+        contentTemplate: this.tabContent ?? null,
+        contentContext: 'Overview content',
+      }),
+      new RHCRibbonLayoutTab({
+        id: 'tab-2',
+        title: 'Details',
+        showCloseButton: true,
+        contentTemplate: this.tabContent ?? null,
+        contentContext: 'Details content',
+      }),
+    ]);
+  }
+
+  protected handleTabSelect(event: RHCRibbonLayoutSelectEvent): void {
+    this.activeTabId.set(event.tab?.id ?? null);
+  }
+}
+```
+
+### Events
+
+- `tabCreate`: emitted when a tab is created.
+- `tabRemove`: emitted when a tab is removed.
+- `tabSelect`: emitted when the active tab changes.
+- `tabEvent`: unified event stream for `create`, `remove`, and `select`.
+- `tabsChange`: emitted with the full latest tab array.
+
 ## Code scaffolding
 
 Angular CLI includes powerful code scaffolding tools. To generate a new component, run:

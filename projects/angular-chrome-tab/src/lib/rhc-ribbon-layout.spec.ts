@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { vi } from 'vitest';
 
-import { RHCRibbonLayoutComponent } from './rhc-ribbon-layout';
+import { RHCRibbonLayoutComponent, RHCRibbonLayoutTab } from './rhc-ribbon-layout';
 
 const TAB_WITH_ICON =
   'data:image/svg+xml;utf8,%3Csvg xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22 width%3D%2216%22 height%3D%2216%22%3E%3Crect width%3D%2216%22 height%3D%2216%22 fill%3D%22%23000%22%2F%3E%3C%2Fsvg%3E';
@@ -92,7 +92,7 @@ describe('RHCRibbonLayoutComponent', () => {
     expect(closableTab.querySelector('.ribbon-tab-close')).not.toBeNull();
   });
 
-  it('emits tabClose and removes the tab when its close button is clicked', () => {
+  it('emits remove events and removes the tab when its close button is clicked', () => {
     fixture.componentRef.setInput('tabs', [
       { id: '1', title: 'One' },
       { id: '2', title: 'Closable', showCloseButton: true },
@@ -100,7 +100,7 @@ describe('RHCRibbonLayoutComponent', () => {
     fixture.componentRef.setInput('initialActiveTabId', '2');
     fixture.detectChanges();
 
-    const emitSpy = vi.spyOn(component.tabClose, 'emit');
+    const emitSpy = vi.spyOn(component.tabRemove, 'emit');
     const closeButton = fixture.nativeElement.querySelector('.ribbon-tab-close') as HTMLElement | null;
 
     expect(closeButton).not.toBeNull();
@@ -109,8 +109,13 @@ describe('RHCRibbonLayoutComponent', () => {
     fixture.detectChanges();
 
     expect(emitSpy).toHaveBeenCalledWith({
+      type: 'remove',
+      origin: 'ui',
       tab: expect.objectContaining({ id: '2', title: 'Closable', showCloseButton: true }),
       index: 1,
+      nextActiveTabId: '1',
+      tabs: [expect.objectContaining({ id: '1' })],
+      timestamp: expect.any(Number),
     });
     expect(fixture.nativeElement.querySelectorAll('.ribbon-tab').length).toBe(1);
   });
@@ -145,5 +150,118 @@ describe('RHCRibbonLayoutComponent', () => {
     expect(titleElement).not.toBeNull();
     expect(computedStyle.fontSize).toBe('13px');
     expect(computedStyle.fontWeight).toBe('500');
+  });
+
+  it('emits create lifecycle events and notifies registered create listeners', () => {
+    const tabCreateSpy = vi.spyOn(component.tabCreate, 'emit');
+    const tabEventSpy = vi.spyOn(component.tabEvent, 'emit');
+    const createListener = vi.fn();
+
+    const unsubscribe = component.addEventListener('create', createListener);
+    const nextTab = new RHCRibbonLayoutTab({
+      id: '3',
+      title: 'Created Tab',
+    });
+
+    component.addTab(nextTab, { activate: false });
+
+    expect(tabCreateSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'create',
+        origin: 'api',
+        tab: expect.objectContaining({ id: '3', title: 'Created Tab' }),
+        index: 2,
+      }),
+    );
+    expect(tabEventSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'create',
+        tab: expect.objectContaining({ id: '3' }),
+      }),
+    );
+    expect(createListener).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'create',
+        tab: expect.objectContaining({ id: '3' }),
+      }),
+    );
+
+    unsubscribe();
+  });
+
+  it('emits select lifecycle events with previous selection data', () => {
+    const tabSelectSpy = vi.spyOn(component.tabSelect, 'emit');
+    const tabEventSpy = vi.spyOn(component.tabEvent, 'emit');
+    const anyListener = vi.fn();
+
+    const unsubscribe = component.addEventListener('*', anyListener);
+    component.setActiveTab('2');
+
+    expect(tabSelectSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'select',
+        origin: 'api',
+        tab: expect.objectContaining({ id: '2' }),
+        previousTab: expect.objectContaining({ id: '1' }),
+        previousIndex: 0,
+        index: 1,
+      }),
+    );
+    expect(tabEventSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'select',
+        tab: expect.objectContaining({ id: '2' }),
+      }),
+    );
+    expect(anyListener).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'select',
+        tab: expect.objectContaining({ id: '2' }),
+      }),
+    );
+
+    unsubscribe();
+  });
+
+  it('switches the active tab when activeTabId input changes', () => {
+    fixture.componentRef.setInput('activeTabId', '2');
+    fixture.detectChanges();
+
+    const tabElements = Array.from(fixture.nativeElement.querySelectorAll('.ribbon-tab'));
+    const firstTab = tabElements[0] as HTMLElement;
+    const secondTab = tabElements[1] as HTMLElement;
+
+    expect(firstTab.hasAttribute('active')).toBe(false);
+    expect(secondTab.hasAttribute('active')).toBe(true);
+  });
+
+  it('emits remove lifecycle events and supports listener unsubscription', () => {
+    fixture.componentRef.setInput('tabs', [
+      { id: '1', title: 'One' },
+      { id: '2', title: 'Closable', showCloseButton: true },
+    ]);
+    fixture.componentRef.setInput('initialActiveTabId', '2');
+    fixture.detectChanges();
+
+    const tabRemoveSpy = vi.spyOn(component.tabRemove, 'emit');
+    const listener = vi.fn();
+    const unsubscribe = component.addEventListener('remove', listener);
+
+    component.closeTab('2');
+
+    expect(tabRemoveSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'remove',
+        origin: 'api',
+        tab: expect.objectContaining({ id: '2' }),
+        index: 1,
+        nextActiveTabId: '1',
+      }),
+    );
+    expect(listener).toHaveBeenCalledTimes(1);
+
+    unsubscribe();
+    component.closeTab('1');
+    expect(listener).toHaveBeenCalledTimes(1);
   });
 });

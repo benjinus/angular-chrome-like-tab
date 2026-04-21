@@ -1,6 +1,10 @@
 import { AfterViewInit, Component, TemplateRef, ViewChild, computed, signal } from '@angular/core';
 import {
   RHCRibbonLayoutComponent,
+  RHCRibbonLayoutCreateEvent,
+  RHCRibbonLayoutEvent,
+  RHCRibbonLayoutRemoveEvent,
+  RHCRibbonLayoutSelectEvent,
   RHCRibbonLayoutTab,
   RHCRibbonLayoutTabContentContext,
   RHCRibbonTabTheme,
@@ -24,6 +28,7 @@ function createFavicon(bg: string, label: string): string {
   styleUrl: './app.css',
 })
 export class App implements AfterViewInit {
+  protected readonly eventLog = signal<string[]>([]);
   protected readonly theme = signal<RHCRibbonTabTheme>('light');
   protected readonly showIcons = signal(true);
   protected readonly tabs = signal<RHCRibbonLayoutTab[]>([]);
@@ -165,8 +170,27 @@ export class App implements AfterViewInit {
     this.ribbonLayout?.reorderTab(activeTabId, activeIndex + 1);
   }
 
-  protected handleActiveTabChange(tabId: string | null): void {
-    this.activeTabId.set(tabId);
+  protected handleTabSelect(event: RHCRibbonLayoutSelectEvent): void {
+    this.activeTabId.set(event.tab?.id ?? null);
+    this.pushEventLog(
+      `tabSelect · ${event.origin} · ${event.previousTab?.title ?? 'None'} -> ${event.tab?.title ?? 'None'}`,
+    );
+  }
+
+  protected handleTabCreate(event: RHCRibbonLayoutCreateEvent): void {
+    this.pushEventLog(
+      `tabCreate · ${event.origin} · ${event.tab.title} @ ${event.index}${event.activated ? ' · activated' : ''}`,
+    );
+  }
+
+  protected handleTabRemove(event: RHCRibbonLayoutRemoveEvent): void {
+    this.pushEventLog(
+      `tabRemove · ${event.origin} · ${event.tab.title} · next ${event.nextActiveTabId ?? 'None'}`,
+    );
+  }
+
+  protected handleTabEvent(event: RHCRibbonLayoutEvent): void {
+    this.pushEventLog(`tabEvent · ${event.type} · ${event.origin}`);
   }
 
   protected handleTabsChange(tabs: RHCRibbonLayoutTab[]): void {
@@ -221,5 +245,9 @@ export class App implements AfterViewInit {
         description: 'This tab body is rendered by RHCRibbonLayoutComponent via ngTemplateOutlet.',
       },
     });
+  }
+
+  private pushEventLog(entry: string): void {
+    this.eventLog.update((items) => [entry, ...items].slice(0, 12));
   }
 }

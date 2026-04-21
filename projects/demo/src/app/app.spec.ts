@@ -100,4 +100,27 @@ describe('App', () => {
     expect(compiled.querySelectorAll('.ribbon-tab').length).toBe(previousTabCount + 1);
     expect(compiled.querySelectorAll('.ribbon-tab-close').length).toBe(previousCloseButtonCount + 1);
   });
+
+  it('should render event log entries when tab events fire', async () => {
+    const fixture = TestBed.createComponent(App);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const addButton = Array.from(compiled.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('新增标签'),
+    ) as HTMLButtonElement | undefined;
+
+    expect(compiled.querySelectorAll('.event-log__item').length).toBeGreaterThan(0);
+
+    addButton?.click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const logText = compiled.querySelector('.event-log')?.textContent ?? '';
+    expect(logText).toContain('tabCreate');
+    expect(logText).toContain('tabEvent');
+  });
 });
