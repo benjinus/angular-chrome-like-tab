@@ -140,24 +140,26 @@
     <div class="ribbon-tabs-bottom-bar"></div>
   </div>
 
-  <div
-    class="rhc-ribbon-layout-content"
-    [class.rhc-ribbon-layout-content--empty]="!activeTab()"
-    [class.rhc-ribbon-layout-content--dark]="theme() === 'dark'"
-    [class.rhc-ribbon-layout-content--compact]="mode() === 'compact'"
-    [class]="activeTabContentContainerClass()"
-  >
-    @if (activeTab(); as activeTab) {
-      @if (activeTab.contentTemplate) {
-        <ng-container
-          [ngTemplateOutlet]="activeTab.contentTemplate"
-          [ngTemplateOutletContext]="activeTabContentContext()"
-        />
+  @if (showContentArea()) {
+    <div
+      class="rhc-ribbon-layout-content"
+      [class.rhc-ribbon-layout-content--empty]="!activeTab()"
+      [class.rhc-ribbon-layout-content--dark]="theme() === 'dark'"
+      [class.rhc-ribbon-layout-content--compact]="mode() === 'compact'"
+      [class]="activeTabContentContainerClass()"
+    >
+      @if (activeTab(); as activeTab) {
+        @if (activeTab.contentTemplate) {
+          <ng-container
+            [ngTemplateOutlet]="activeTab.contentTemplate"
+            [ngTemplateOutletContext]="activeTabContentContext()"
+          />
+        } @else {
+          <div class="rhc-ribbon-layout-empty-state">No content template provided.</div>
+        }
       } @else {
-        <div class="rhc-ribbon-layout-empty-state">No content template provided.</div>
+        <div class="rhc-ribbon-layout-empty-state">No active tab selected.</div>
       }
-    } @else {
-      <div class="rhc-ribbon-layout-empty-state">No active tab selected.</div>
-    }
-  </div>
+    </div>
+  }
 </div>

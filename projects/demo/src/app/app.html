@@ -13,6 +13,7 @@
       #ribbonLayout
       [tabs]="tabs()"
       [activeTabId]="activeTabId()"
+      [showContentArea]="showContentArea()"
       [enableTabReorder]="enableTabReorder()"
       [showTabBarMenuButton]="true"
       [tabBarMenuTemplate]="tabBarMenuTemplateRef ?? null"
@@ -30,6 +31,9 @@
       <button type="button" (click)="toggleTheme()">切换主题</button>
       <button type="button" (click)="toggleIcons()">
         {{ showIcons() ? '隐藏 icon' : '显示 icon' }}
+      </button>
+      <button type="button" (click)="toggleContentArea()">
+        {{ showContentArea() ? '隐藏内容区' : '显示内容区' }}
       </button>
       <button type="button" (click)="toggleTabReorder()">
         {{ enableTabReorder() ? '禁用拖拽排序' : '启用拖拽排序' }}
@@ -57,7 +61,8 @@
       <p class="preview-meta">
         Theme: {{ theme() }} · Tabs: {{ tabs().length }} · Icons:
         {{ showIcons() ? 'on' : 'off' }} · Drag reorder:
-        {{ enableTabReorder() ? 'on' : 'off' }}
+        {{ enableTabReorder() ? 'on' : 'off' }} · Content:
+        {{ showContentArea() ? 'on' : 'off' }}
       </p>
     </div>
 
@@ -90,6 +95,7 @@
       [mode]="'compact'"
       [tabs]="compactTabs()"
       [activeTabId]="compactActiveTabId()"
+      [showContentArea]="showCompactContentArea()"
       [enableTabReorder]="enableCompactTabReorder()"
       [theme]="theme()"
       (tabReorder)="handleCompactTabReorder($event)"
@@ -98,6 +104,9 @@
     />
 
     <div class="toolbar">
+      <button type="button" (click)="toggleCompactContentArea()">
+        {{ showCompactContentArea() ? '隐藏文件内容区' : '显示文件内容区' }}
+      </button>
       <button type="button" (click)="toggleCompactTabReorder()">
         {{ enableCompactTabReorder() ? '禁用文件标签拖拽排序' : '启用文件标签拖拽排序' }}
       </button>
@@ -118,7 +127,8 @@
       <h2>{{ compactActiveTitle() }}</h2>
       <p class="preview-meta">
         Theme: {{ theme() }} · Tabs: {{ compactTabs().length }} · Mode: compact · Drag reorder:
-        {{ enableCompactTabReorder() ? 'on' : 'off' }}
+        {{ enableCompactTabReorder() ? 'on' : 'off' }} · Content:
+        {{ showCompactContentArea() ? 'on' : 'off' }}
       </p>
     </div>
   </section>

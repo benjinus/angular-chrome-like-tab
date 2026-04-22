@@ -33,6 +33,8 @@ export class App implements AfterViewInit {
   protected readonly eventLog = signal<string[]>([]);
   protected readonly theme = signal<RHCRibbonTabTheme>('light');
   protected readonly showIcons = signal(true);
+  protected readonly showContentArea = signal(true);
+  protected readonly showCompactContentArea = signal(true);
   protected readonly enableTabReorder = signal(false);
   protected readonly enableCompactTabReorder = signal(false);
   protected readonly tabs = signal<RHCRibbonLayoutTab[]>([]);
@@ -172,6 +174,14 @@ export class App implements AfterViewInit {
   protected toggleIcons(): void {
     this.showIcons.update((showIcons) => !showIcons);
     this.tabs.update((tabs) => this.applyIconVisibility(tabs));
+  }
+
+  protected toggleContentArea(): void {
+    this.showContentArea.update((show) => !show);
+  }
+
+  protected toggleCompactContentArea(): void {
+    this.showCompactContentArea.update((show) => !show);
   }
 
   protected toggleTabReorder(): void {

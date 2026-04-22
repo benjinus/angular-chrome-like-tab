@@ -6,6 +6,7 @@
 - 动态增删标签
 - 可选 icon / close button
 - `default` / `compact` 两种标签风格
+- 可选内容区显示/隐藏
 - 可选标签栏菜单按钮与 CDK overlay 菜单
 - 可选拖拽排序，默认关闭
 
@@ -34,6 +35,7 @@ import {
       #ribbonLayout
       [tabs]="tabs()"
       [activeTabId]="activeTabId()"
+      [showContentArea]="true"
       [enableTabReorder]="true"
       (tabSelect)="handleTabSelect($event)"
       (tabsChange)="handleTabsChange($event)"
@@ -140,6 +142,24 @@ export class AppComponent {
 - 程序化 `reorderTab(tabId, targetIndex)` 始终可用
 - 拖拽完成后组件会立即更新内部顺序，并通过 `tabsChange` 与 `tabReorder` 通知外部
 
+## 仅显示标签栏
+
+如果你只需要标签栏本身，不需要下方内容容器，可以关闭内容区：
+
+```html
+<rhc-ribbon-layout
+  [tabs]="tabs()"
+  [activeTabId]="activeTabId()"
+  [showContentArea]="false"
+  (tabSelect)="activeTabId.set($event.tab?.id ?? null)"
+/>
+```
+
+说明：
+
+- `showContentArea` 默认是 `true`
+- 设为 `false` 后只隐藏组件内部内容区，不影响标签切换、事件输出、菜单按钮或程序化 API
+
 ## 常用输入与输出
 
 常用输入：
@@ -149,6 +169,7 @@ export class AppComponent {
 - `[initialActiveTabId]`
 - `[mode]="'default' | 'compact'"`
 - `[theme]="'light' | 'dark'"`
+- `[showContentArea]="boolean"`
 - `[enableTabReorder]="boolean"`
 - `[showTabBarMenuButton]="boolean"`
 - `[tabBarMenuTemplate]="templateRef"`

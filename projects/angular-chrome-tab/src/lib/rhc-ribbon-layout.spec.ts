@@ -281,6 +281,21 @@ describe('RHCRibbonLayoutComponent', () => {
     expect(computedStyle.fontWeight).toBe('500');
   });
 
+  it('renders the content area by default', () => {
+    const contentArea = fixture.nativeElement.querySelector('.rhc-ribbon-layout-content') as HTMLElement | null;
+
+    expect(contentArea).not.toBeNull();
+  });
+
+  it('does not render the content area when showContentArea is false', () => {
+    fixture.componentRef.setInput('showContentArea', false);
+    fixture.detectChanges();
+
+    const contentArea = fixture.nativeElement.querySelector('.rhc-ribbon-layout-content') as HTMLElement | null;
+
+    expect(contentArea).toBeNull();
+  });
+
   it('does not render a tab bar menu button by default', () => {
     const menuButton = fixture.nativeElement.querySelector('.ribbon-tabs-menu-button') as HTMLElement | null;
     expect(menuButton).toBeNull();

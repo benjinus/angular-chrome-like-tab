@@ -294,6 +294,7 @@ interface RHCRibbonDragState {
 export class RHCRibbonLayoutComponent implements AfterViewInit, OnDestroy {
   readonly tabs = input<RHCRibbonLayoutTab[]>([]);
   readonly mode = input<RHCRibbonLayoutMode>('default');
+  readonly showContentArea = input(true);
   readonly enableTabReorder = input(false);
   readonly showTabBarMenuButton = input(false);
   readonly tabBarMenuTemplate = input<TemplateRef<RHCRibbonLayoutTabBarMenuContext> | null>(null);
