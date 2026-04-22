@@ -44,6 +44,19 @@ const TAB_SIZE_SMALL = TAB_CONTENT_MIN_WIDTH + 1;
 const TAB_SIZE_SMALLER = 60;
 const TAB_SIZE_MINI = 48;
 const TAB_REORDER_DRAG_THRESHOLD = 4;
+const CONTENT_SCROLL_DRAG_THRESHOLD = 6;
+const CONTENT_ELASTIC_RESISTANCE = 0.35;
+const CONTENT_ELASTIC_MAX_OFFSET = 64;
+const CONTENT_ELASTIC_DECAY = 0.72;
+const CONTENT_ELASTIC_STOP_EPSILON = 0.5;
+const CONTENT_DRAG_BLOCK_SELECTOR = [
+  'input',
+  'select',
+  'textarea',
+  'option',
+  'a[href]',
+  '[contenteditable="true"]',
+].join(', ');
 
 export interface RHCRibbonTabItem {
   id: string;
@@ -88,24 +101,27 @@ export interface RHCRibbonLayoutEventBase<TContext = unknown> {
   timestamp: number;
 }
 
-export interface RHCRibbonLayoutCreateEvent<TContext = unknown>
-  extends RHCRibbonLayoutEventBase<TContext> {
+export interface RHCRibbonLayoutCreateEvent<
+  TContext = unknown,
+> extends RHCRibbonLayoutEventBase<TContext> {
   type: 'create';
   tab: RHCRibbonLayoutTab<TContext>;
   index: number;
   activated: boolean;
 }
 
-export interface RHCRibbonLayoutRemoveEvent<TContext = unknown>
-  extends RHCRibbonLayoutEventBase<TContext> {
+export interface RHCRibbonLayoutRemoveEvent<
+  TContext = unknown,
+> extends RHCRibbonLayoutEventBase<TContext> {
   type: 'remove';
   tab: RHCRibbonLayoutTab<TContext>;
   index: number;
   nextActiveTabId: string | null;
 }
 
-export interface RHCRibbonLayoutSelectEvent<TContext = unknown>
-  extends RHCRibbonLayoutEventBase<TContext> {
+export interface RHCRibbonLayoutSelectEvent<
+  TContext = unknown,
+> extends RHCRibbonLayoutEventBase<TContext> {
   type: 'select';
   tab: RHCRibbonLayoutTab<TContext> | null;
   index: number;
@@ -206,10 +222,7 @@ function shouldShowCloseButton(
   return tab.showCloseButton === true;
 }
 
-function buildTabContentWidths(
-  tabs: RHCRibbonLayoutTab[],
-  mode: RHCRibbonLayoutMode,
-): number[] {
+function buildTabContentWidths(tabs: RHCRibbonLayoutTab[], mode: RHCRibbonLayoutMode): number[] {
   return tabs.map((tab) => {
     const titleWidth = Math.ceil(measureTabTitleWidth(tab.title));
     const faviconWidth = tab.favicon
@@ -281,6 +294,13 @@ interface RHCRibbonDragState {
   moved: boolean;
 }
 
+interface RHCRibbonContentDragState {
+  id: number;
+  startX: number;
+  initialScrollOffset: number;
+  moved: boolean;
+}
+
 @Component({
   selector: 'rhc-ribbon-layout',
   standalone: true,
@@ -295,6 +315,7 @@ export class RHCRibbonLayoutComponent implements AfterViewInit, OnDestroy {
   readonly tabs = input<RHCRibbonLayoutTab[]>([]);
   readonly mode = input<RHCRibbonLayoutMode>('default');
   readonly showContentArea = input(true);
+  readonly enableContentAreaHorizontalScroll = input(false);
   readonly enableTabReorder = input(false);
   readonly showTabBarMenuButton = input(false);
   readonly tabBarMenuTemplate = input<TemplateRef<RHCRibbonLayoutTabBarMenuContext> | null>(null);
@@ -349,6 +370,8 @@ export class RHCRibbonLayoutComponent implements AfterViewInit, OnDestroy {
     close: () => this.closeTabBarMenu(),
   }));
   protected readonly scrollOffset = signal(0);
+  protected readonly contentScrollOffset = signal(0);
+  protected readonly contentElasticOffset = signal(0);
   protected readonly isDragging = signal(false);
   protected readonly isTabBarMenuOpen = signal(false);
   protected readonly tabTitleFont = TAB_TITLE_FONT;
@@ -372,6 +395,8 @@ export class RHCRibbonLayoutComponent implements AfterViewInit, OnDestroy {
   private readonly internalTabs = signal<RHCRibbonLayoutTab[]>([]);
   private readonly activeTabIdState = signal<string | null>(null);
   private readonly contentWidth = signal(0);
+  private readonly contentViewportWidth = signal(0);
+  private readonly contentTrackWidth = signal(0);
   private readonly totalTabsWidth = computed(() => {
     const tabs = this.renderedTabs();
     const lastTab = tabs[tabs.length - 1];
@@ -381,10 +406,46 @@ export class RHCRibbonLayoutComponent implements AfterViewInit, OnDestroy {
   private readonly maxScrollOffset = computed(() =>
     Math.max(0, this.totalTabsWidth() - this.contentWidth()),
   );
+  protected readonly maxContentScrollOffset = computed(() =>
+    Math.max(0, this.contentTrackWidth() - this.contentViewportWidth()),
+  );
+  protected readonly canScrollContent = computed(
+    () => this.enableContentAreaHorizontalScroll() && this.maxContentScrollOffset() > 0,
+  );
+  protected readonly showLeadingContentMask = computed(
+    () => this.canScrollContent() && this.contentScrollOffset() > 0,
+  );
+  protected readonly showTrailingContentMask = computed(
+    () =>
+      this.canScrollContent() && this.contentScrollOffset() < this.maxContentScrollOffset() - 0.5,
+  );
+  protected readonly contentTrackTransform = computed(() => {
+    const x = -this.contentScrollOffset() + this.contentElasticOffset();
+    return `translate3d(${x}px, 0, 0)`;
+  });
   private resizeObserver: ResizeObserver | null = null;
   private dragState: RHCRibbonDragState | null = null;
+  private contentDragState: RHCRibbonContentDragState | null = null;
   private suppressClickUntil = 0;
+  private suppressContentClickUntil = 0;
   private hasViewInitialized = false;
+  private contentMeasureFrame: number | null = null;
+  private contentElasticFrame: number | null = null;
+  private observedContentViewport: HTMLElement | null = null;
+  private observedContentTrack: HTMLElement | null = null;
+  private readonly contentClickCaptureListener = (event: Event): void => {
+    if (!(event instanceof MouseEvent)) {
+      return;
+    }
+
+    if (event.timeStamp > this.suppressContentClickUntil) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation();
+  };
   private readonly eventListeners = new Map<
     RHCRibbonLayoutEventListenerType,
     Set<RHCRibbonLayoutEventListener>
@@ -392,6 +453,12 @@ export class RHCRibbonLayoutComponent implements AfterViewInit, OnDestroy {
 
   @ViewChild('content', { static: true })
   private readonly contentRef?: ElementRef<HTMLElement>;
+
+  @ViewChild('contentViewport')
+  private readonly contentViewportRef?: ElementRef<HTMLElement>;
+
+  @ViewChild('contentTrack')
+  private readonly contentTrackRef?: ElementRef<HTMLElement>;
 
   constructor() {
     effect(() => {
@@ -424,10 +491,18 @@ export class RHCRibbonLayoutComponent implements AfterViewInit, OnDestroy {
     });
 
     effect(() => {
-      if (
-        !this.hasViewInitialized ||
-        this.isDragging()
-      ) {
+      const boundedOffset = this.getBoundedContentScrollOffset(this.contentScrollOffset());
+      if (boundedOffset !== this.contentScrollOffset()) {
+        this.contentScrollOffset.set(boundedOffset);
+      }
+
+      if (this.maxContentScrollOffset() === 0 && this.contentElasticOffset() !== 0) {
+        this.contentElasticOffset.set(0);
+      }
+    });
+
+    effect(() => {
+      if (!this.hasViewInitialized || this.isDragging()) {
         return;
       }
 
@@ -447,10 +522,31 @@ export class RHCRibbonLayoutComponent implements AfterViewInit, OnDestroy {
       }
 
       if (tabEnd > viewportEnd) {
-        this.scrollOffset.set(
-          clamp(tabEnd - this.contentWidth(), 0, this.maxScrollOffset()),
-        );
+        this.scrollOffset.set(clamp(tabEnd - this.contentWidth(), 0, this.maxScrollOffset()));
       }
+    });
+
+    effect(() => {
+      if (!this.hasViewInitialized) {
+        return;
+      }
+
+      const activeTabId = this.activeTab()?.id ?? null;
+      const shouldShowContentArea = this.showContentArea();
+      const enableContentAreaHorizontalScroll = this.enableContentAreaHorizontalScroll();
+
+      this.stopContentElasticBounce();
+      this.contentDragState = null;
+      this.contentScrollOffset.set(0);
+      this.contentElasticOffset.set(0);
+
+      if (!shouldShowContentArea || !activeTabId || !enableContentAreaHorizontalScroll) {
+        this.contentTrackWidth.set(0);
+        this.contentViewportWidth.set(0);
+        return;
+      }
+
+      this.scheduleContentMetricsUpdate();
     });
   }
 
@@ -461,15 +557,38 @@ export class RHCRibbonLayoutComponent implements AfterViewInit, OnDestroy {
     }
 
     this.contentWidth.set(contentElement.clientWidth);
-    this.resizeObserver = new ResizeObserver(() => {
-      this.contentWidth.set(contentElement.clientWidth);
+    this.resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.target === contentElement) {
+          this.contentWidth.set(contentElement.clientWidth);
+          continue;
+        }
+
+        if (
+          entry.target === this.contentViewportRef?.nativeElement ||
+          entry.target === this.contentTrackRef?.nativeElement
+        ) {
+          this.scheduleContentMetricsUpdate();
+        }
+      }
     });
     this.resizeObserver.observe(contentElement);
     this.hasViewInitialized = true;
+    this.observeContentScrollElements();
+    this.scheduleContentMetricsUpdate();
   }
 
   ngOnDestroy(): void {
     this.resizeObserver?.disconnect();
+    this.observedContentViewport?.removeEventListener(
+      'click',
+      this.contentClickCaptureListener,
+      true,
+    );
+    if (this.contentMeasureFrame !== null) {
+      cancelAnimationFrame(this.contentMeasureFrame);
+    }
+    this.stopContentElasticBounce();
   }
 
   public addEventListener(
@@ -508,9 +627,11 @@ export class RHCRibbonLayoutComponent implements AfterViewInit, OnDestroy {
 
     const tabs = this.internalTabs();
     const previousTab = previousActiveTabId
-      ? tabs.find((tab) => tab.id === previousActiveTabId) ?? null
+      ? (tabs.find((tab) => tab.id === previousActiveTabId) ?? null)
       : null;
-    const nextTab = nextActiveTabId ? tabs.find((tab) => tab.id === nextActiveTabId) ?? null : null;
+    const nextTab = nextActiveTabId
+      ? (tabs.find((tab) => tab.id === nextActiveTabId) ?? null)
+      : null;
 
     this.activeTabIdState.set(nextActiveTabId);
     this.emitLifecycleEvent({
@@ -568,7 +689,7 @@ export class RHCRibbonLayoutComponent implements AfterViewInit, OnDestroy {
     const nextTabs = tabs.filter((tab) => tab.id !== tabId);
     const nextActiveTabId =
       this.activeTabIdState() === tabId
-        ? (nextTabs[closeIndex] ?? nextTabs[closeIndex - 1] ?? null)?.id ?? null
+        ? ((nextTabs[closeIndex] ?? nextTabs[closeIndex - 1] ?? null)?.id ?? null)
         : this.resolveNextActiveTabId(nextTabs, this.activeTabIdState(), null);
     this.commitTabs(nextTabs);
     this.emitLifecycleEvent({
@@ -665,7 +786,11 @@ export class RHCRibbonLayoutComponent implements AfterViewInit, OnDestroy {
       return;
     }
 
-    if (!this.dragState || this.dragState.id !== event.pointerId || this.dragState.tabId !== tabId) {
+    if (
+      !this.dragState ||
+      this.dragState.id !== event.pointerId ||
+      this.dragState.tabId !== tabId
+    ) {
       return;
     }
 
@@ -687,7 +812,11 @@ export class RHCRibbonLayoutComponent implements AfterViewInit, OnDestroy {
       return;
     }
 
-    if (!this.dragState || this.dragState.id !== event.pointerId || this.dragState.tabId !== tabId) {
+    if (
+      !this.dragState ||
+      this.dragState.id !== event.pointerId ||
+      this.dragState.tabId !== tabId
+    ) {
       return;
     }
 
@@ -722,6 +851,97 @@ export class RHCRibbonLayoutComponent implements AfterViewInit, OnDestroy {
 
     event.preventDefault();
     this.scrollOffset.set(nextOffset);
+  }
+
+  protected handleContentWheel(event: WheelEvent): void {
+    if (!this.canScrollContent()) {
+      return;
+    }
+
+    const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+    if (!delta) {
+      return;
+    }
+
+    const changed = this.applyContentScrollTarget(this.contentScrollOffset() + delta);
+    if (!changed) {
+      return;
+    }
+
+    event.preventDefault();
+
+    if (this.contentElasticOffset() !== 0) {
+      this.startContentElasticBounce();
+    }
+  }
+
+  protected handleContentPointerDown(event: PointerEvent): void {
+    if (!this.canScrollContent()) {
+      return;
+    }
+
+    if (event.pointerType === 'mouse' && event.button !== 0) {
+      return;
+    }
+
+    if (!this.canStartContentDrag(event)) {
+      return;
+    }
+
+    const viewport = event.currentTarget as HTMLElement | null;
+    if (!viewport) {
+      return;
+    }
+
+    this.stopContentElasticBounce();
+    viewport.setPointerCapture(event.pointerId);
+    this.contentDragState = {
+      id: event.pointerId,
+      startX: event.clientX,
+      initialScrollOffset: this.contentScrollOffset(),
+      moved: false,
+    };
+  }
+
+  protected handleContentPointerMove(event: PointerEvent): void {
+    if (!this.contentDragState || this.contentDragState.id !== event.pointerId) {
+      return;
+    }
+
+    const deltaX = event.clientX - this.contentDragState.startX;
+    if (!this.contentDragState.moved && Math.abs(deltaX) > CONTENT_SCROLL_DRAG_THRESHOLD) {
+      this.contentDragState.moved = true;
+    }
+
+    if (!this.contentDragState.moved) {
+      return;
+    }
+
+    event.preventDefault();
+    this.applyContentScrollTarget(this.contentDragState.initialScrollOffset - deltaX);
+  }
+
+  protected handleContentPointerUp(event: PointerEvent): void {
+    if (!this.contentDragState || this.contentDragState.id !== event.pointerId) {
+      return;
+    }
+
+    const viewport = event.currentTarget as HTMLElement | null;
+    if (viewport?.hasPointerCapture(event.pointerId)) {
+      viewport.releasePointerCapture(event.pointerId);
+    }
+
+    const didDrag = this.contentDragState.moved;
+    const shouldBounce = didDrag && this.contentElasticOffset() !== 0;
+    this.contentDragState = null;
+
+    if (didDrag) {
+      this.suppressContentClickUntil = event.timeStamp + 250;
+    }
+
+    if (shouldBounce) {
+      this.startContentElasticBounce();
+    }
   }
 
   protected handleCloseButtonPointerDown(event: PointerEvent): void {
@@ -765,6 +985,10 @@ export class RHCRibbonLayoutComponent implements AfterViewInit, OnDestroy {
     return clamp(offset, 0, this.maxScrollOffset());
   }
 
+  private getBoundedContentScrollOffset(offset: number): number {
+    return clamp(offset, 0, this.maxContentScrollOffset());
+  }
+
   protected isDraggedTab(tabId: string): boolean {
     return this.dragState?.moved === true && this.dragState.tabId === tabId;
   }
@@ -806,6 +1030,155 @@ export class RHCRibbonLayoutComponent implements AfterViewInit, OnDestroy {
     if (destinationIndex !== currentIndex) {
       this.reorderTab(draggedTab.id, destinationIndex);
     }
+  }
+
+  private canStartContentDrag(event: PointerEvent): boolean {
+    const target = event.target;
+    if (!(target instanceof Element)) {
+      return true;
+    }
+
+    return !target.closest(CONTENT_DRAG_BLOCK_SELECTOR);
+  }
+
+  private applyContentScrollTarget(nextOffset: number): boolean {
+    const boundedOffset = this.getBoundedContentScrollOffset(nextOffset);
+    const overshoot = nextOffset - boundedOffset;
+    const nextElasticOffset =
+      overshoot === 0
+        ? 0
+        : clamp(
+            -overshoot * CONTENT_ELASTIC_RESISTANCE,
+            -CONTENT_ELASTIC_MAX_OFFSET,
+            CONTENT_ELASTIC_MAX_OFFSET,
+          );
+    const didChange =
+      boundedOffset !== this.contentScrollOffset() ||
+      Math.abs(nextElasticOffset - this.contentElasticOffset()) > 0.01;
+
+    this.contentScrollOffset.set(boundedOffset);
+    this.contentElasticOffset.set(nextElasticOffset);
+
+    return didChange;
+  }
+
+  private startContentElasticBounce(): void {
+    if (this.contentElasticFrame !== null) {
+      return;
+    }
+
+    const step = () => {
+      const currentElasticOffset = this.contentElasticOffset();
+      const nextElasticOffset = currentElasticOffset * CONTENT_ELASTIC_DECAY;
+
+      if (Math.abs(nextElasticOffset) <= CONTENT_ELASTIC_STOP_EPSILON) {
+        this.contentElasticOffset.set(0);
+        this.contentElasticFrame = null;
+        return;
+      }
+
+      this.contentElasticOffset.set(nextElasticOffset);
+      this.contentElasticFrame = requestAnimationFrame(step);
+    };
+
+    this.contentElasticFrame = requestAnimationFrame(step);
+  }
+
+  private stopContentElasticBounce(): void {
+    if (this.contentElasticFrame !== null) {
+      cancelAnimationFrame(this.contentElasticFrame);
+      this.contentElasticFrame = null;
+    }
+  }
+
+  private observeContentScrollElements(): void {
+    if (!this.resizeObserver) {
+      return;
+    }
+
+    const viewport = this.contentViewportRef?.nativeElement ?? null;
+    const track = this.contentTrackRef?.nativeElement ?? null;
+
+    if (this.observedContentViewport && this.observedContentViewport !== viewport) {
+      this.observedContentViewport.removeEventListener(
+        'click',
+        this.contentClickCaptureListener,
+        true,
+      );
+      this.resizeObserver.unobserve(this.observedContentViewport);
+    }
+
+    if (this.observedContentTrack && this.observedContentTrack !== track) {
+      this.resizeObserver.unobserve(this.observedContentTrack);
+    }
+
+    if (viewport && this.observedContentViewport !== viewport) {
+      viewport.addEventListener('click', this.contentClickCaptureListener, true);
+      this.resizeObserver.observe(viewport);
+    }
+
+    if (track && this.observedContentTrack !== track) {
+      this.resizeObserver.observe(track);
+    }
+
+    this.observedContentViewport = viewport;
+    this.observedContentTrack = track;
+  }
+
+  private scheduleContentMetricsUpdate(): void {
+    if (!this.enableContentAreaHorizontalScroll()) {
+      return;
+    }
+
+    this.observeContentScrollElements();
+
+    if (this.contentMeasureFrame !== null) {
+      cancelAnimationFrame(this.contentMeasureFrame);
+    }
+
+    this.contentMeasureFrame = requestAnimationFrame(() => {
+      this.contentMeasureFrame = null;
+      this.measureContentMetrics();
+    });
+  }
+
+  private measureContentMetrics(): void {
+    const viewport = this.contentViewportRef?.nativeElement;
+    const track = this.contentTrackRef?.nativeElement;
+
+    if (
+      !this.enableContentAreaHorizontalScroll() ||
+      !this.showContentArea() ||
+      !this.activeTab() ||
+      !viewport ||
+      !track
+    ) {
+      this.contentViewportWidth.set(0);
+      this.contentTrackWidth.set(0);
+      this.contentScrollOffset.set(0);
+      this.contentElasticOffset.set(0);
+      return;
+    }
+
+    const viewportWidth = viewport.clientWidth;
+    if (viewportWidth <= 0) {
+      return;
+    }
+
+    const measuredTrackWidth = this.measureTrackWidth(track);
+    this.contentViewportWidth.set(viewportWidth);
+    this.contentTrackWidth.set(measuredTrackWidth);
+    this.contentScrollOffset.set(
+      clamp(this.contentScrollOffset(), 0, Math.max(0, measuredTrackWidth - viewportWidth)),
+    );
+
+    if (measuredTrackWidth <= viewportWidth) {
+      this.contentElasticOffset.set(0);
+    }
+  }
+
+  private measureTrackWidth(track: HTMLElement): number {
+    return Math.max(track.scrollWidth, track.getBoundingClientRect().width);
   }
 
   private emitLifecycleEvent(event: RHCRibbonLayoutEvent): void {

@@ -1,12 +1,61 @@
-import { Component, TemplateRef, ViewChild } from '@angular/core';
+import { Component, OnInit, TemplateRef, ViewChild } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { RHCRibbonLayoutComponent, RHCRibbonLayoutTab } from './rhc-ribbon-layout';
+import {
+  RHCRibbonLayoutComponent,
+  RHCRibbonLayoutTab,
+  type RHCRibbonLayoutTabContentContext,
+} from './rhc-ribbon-layout';
 
 const TAB_WITH_ICON =
   'data:image/svg+xml;utf8,%3Csvg xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22 width%3D%2216%22 height%3D%2216%22%3E%3Crect width%3D%2216%22 height%3D%2216%22 fill%3D%22%23000%22%2F%3E%3C%2Fsvg%3E';
-const pointerCaptures = new WeakMap<HTMLElement, Set<number>>();
+const pointerCaptures = new Map<HTMLElement, Set<number>>();
+const resizeObserverTargets = new Map<Element, Set<ResizeObserverMock>>();
+const animationFrameQueue = new Map<number, FrameRequestCallback>();
+let nextAnimationFrameId = 1;
+
+class ResizeObserverMock implements ResizeObserver {
+  constructor(private readonly callback: ResizeObserverCallback) {}
+
+  observe(target: Element): void {
+    const observers = resizeObserverTargets.get(target) ?? new Set<ResizeObserverMock>();
+    observers.add(this);
+    resizeObserverTargets.set(target, observers);
+  }
+
+  unobserve(target: Element): void {
+    resizeObserverTargets.get(target)?.delete(this);
+  }
+
+  disconnect(): void {
+    for (const observers of resizeObserverTargets.values()) {
+      observers.delete(this);
+    }
+  }
+
+  emit(target: Element, width: number, height: number = 48): void {
+    this.callback(
+      [
+        {
+          target,
+          contentRect: {
+            width,
+            height,
+            x: 0,
+            y: 0,
+            top: 0,
+            left: 0,
+            right: width,
+            bottom: height,
+            toJSON: () => '',
+          },
+        } as ResizeObserverEntry,
+      ],
+      this,
+    );
+  }
+}
 
 function parseTranslateX(element: HTMLElement | null): number {
   return Number.parseFloat(element?.style.transform.match(/translate3d\(([-\d.]+)px/)?.[1] ?? '0');
@@ -41,6 +90,87 @@ function dispatchPointerEvent(
   element.dispatchEvent(event);
 }
 
+function triggerResize(target: Element, width: number, height: number = 48): void {
+  for (const observer of resizeObserverTargets.get(target) ?? []) {
+    observer.emit(target, width, height);
+  }
+}
+
+function drainAnimationFrames(steps: number = 8): void {
+  for (let step = 0; step < steps; step += 1) {
+    if (animationFrameQueue.size === 0) {
+      return;
+    }
+
+    const queue = Array.from(animationFrameQueue.entries());
+    animationFrameQueue.clear();
+    for (const [id, callback] of queue) {
+      if (!animationFrameQueue.has(id)) {
+        callback((step + 1) * 16);
+      }
+    }
+  }
+}
+
+function mockElementRectWidth(element: HTMLElement, resolveWidth: () => number): void {
+  Object.defineProperty(element, 'clientWidth', {
+    configurable: true,
+    get: resolveWidth,
+  });
+  Object.defineProperty(element, 'scrollWidth', {
+    configurable: true,
+    get: resolveWidth,
+  });
+  vi.spyOn(element, 'getBoundingClientRect').mockImplementation(
+    () =>
+      ({
+        width: resolveWidth(),
+        height: 48,
+        x: 0,
+        y: 0,
+        top: 0,
+        left: 0,
+        right: resolveWidth(),
+        bottom: 48,
+        toJSON: () => '',
+      }) as DOMRect,
+  );
+}
+
+function configureContentScrollMeasurements(
+  fixture: ComponentFixture<unknown>,
+  widths: {
+    viewportWidth: number;
+    naturalTrackWidth: number;
+  },
+): {
+  viewport: HTMLElement;
+  track: HTMLElement;
+} {
+  const viewport = fixture.nativeElement.querySelector(
+    '.rhc-ribbon-layout-content-viewport',
+  ) as HTMLElement | null;
+  const track = fixture.nativeElement.querySelector(
+    '.rhc-ribbon-layout-content-track',
+  ) as HTMLElement | null;
+
+  expect(viewport).not.toBeNull();
+  expect(track).not.toBeNull();
+
+  mockElementRectWidth(viewport!, () => widths.viewportWidth);
+  mockElementRectWidth(track!, () => widths.naturalTrackWidth);
+
+  triggerResize(viewport!, widths.viewportWidth);
+  triggerResize(track!, widths.naturalTrackWidth);
+  drainAnimationFrames();
+  fixture.detectChanges();
+
+  return {
+    viewport: viewport!,
+    track: track!,
+  };
+}
+
 @Component({
   standalone: true,
   imports: [RHCRibbonLayoutComponent],
@@ -72,6 +202,65 @@ class RibbonLayoutTabBarMenuHostComponent {
 
   handleMenuClick(event: unknown): void {
     this.menuClicks.push(event);
+  }
+}
+
+@Component({
+  standalone: true,
+  imports: [RHCRibbonLayoutComponent],
+  styles: [
+    `
+      .content-strip {
+        display: flex;
+        align-items: stretch;
+        gap: 16px;
+      }
+
+      .content-group {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 220px;
+        height: 52px;
+        padding: 0 12px;
+        border-radius: 12px;
+        background: rgba(0, 122, 255, 0.08);
+      }
+    `,
+  ],
+  template: `
+    <rhc-ribbon-layout
+      [tabs]="tabs"
+      [activeTabId]="'view'"
+      [enableContentAreaHorizontalScroll]="true"
+    />
+
+    <ng-template #contentTemplate>
+      <div class="content-strip">
+        <div class="content-group">Alpha</div>
+        <div class="content-group">Beta</div>
+        <div class="content-group">
+          <button type="button" class="content-action" (click)="buttonClicks += 1">Action</button>
+        </div>
+      </div>
+    </ng-template>
+  `,
+})
+class RibbonLayoutContentScrollHostComponent implements OnInit {
+  tabs: RHCRibbonLayoutTab[] = [];
+  buttonClicks = 0;
+
+  @ViewChild('contentTemplate', { static: true })
+  readonly contentTemplate?: TemplateRef<RHCRibbonLayoutTabContentContext<unknown>>;
+
+  ngOnInit(): void {
+    this.tabs = [
+      new RHCRibbonLayoutTab({
+        id: 'view',
+        title: 'View',
+        contentTemplate: this.contentTemplate ?? null,
+      }),
+    ];
   }
 }
 
@@ -115,7 +304,9 @@ describe('RHCRibbonLayoutComponent', () => {
     }
 
     if (!HTMLElement.prototype.setPointerCapture) {
-      HTMLElement.prototype.setPointerCapture = function setPointerCapture(pointerId: number): void {
+      HTMLElement.prototype.setPointerCapture = function setPointerCapture(
+        pointerId: number,
+      ): void {
         const captures = pointerCaptures.get(this) ?? new Set<number>();
         captures.add(pointerId);
         pointerCaptures.set(this, captures);
@@ -123,7 +314,9 @@ describe('RHCRibbonLayoutComponent', () => {
     }
 
     if (!HTMLElement.prototype.hasPointerCapture) {
-      HTMLElement.prototype.hasPointerCapture = function hasPointerCapture(pointerId: number): boolean {
+      HTMLElement.prototype.hasPointerCapture = function hasPointerCapture(
+        pointerId: number,
+      ): boolean {
         return pointerCaptures.get(this)?.has(pointerId) ?? false;
       };
     }
@@ -136,23 +329,23 @@ describe('RHCRibbonLayoutComponent', () => {
       };
     }
 
-    if (!globalThis.ResizeObserver) {
-      class ResizeObserverMock implements ResizeObserver {
-        observe(): void {}
-        unobserve(): void {}
-        disconnect(): void {}
-      }
+    globalThis.ResizeObserver = ResizeObserverMock;
 
-      globalThis.ResizeObserver = ResizeObserverMock;
-    }
-
-    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(
-      () =>
-        ({
-          font: '',
-          measureText: (text: string) => ({ width: text.length * 7 }),
-        }) as CanvasRenderingContext2D,
+    vi.spyOn(globalThis, 'requestAnimationFrame').mockImplementation(
+      (callback: FrameRequestCallback) => {
+        const id = nextAnimationFrameId++;
+        animationFrameQueue.set(id, callback);
+        return id;
+      },
     );
+    vi.spyOn(globalThis, 'cancelAnimationFrame').mockImplementation((id: number) => {
+      animationFrameQueue.delete(id);
+    });
+
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation((() => ({
+      font: '',
+      measureText: (text: string) => ({ width: text.length * 7 }),
+    })) as unknown as typeof HTMLCanvasElement.prototype.getContext);
   });
 
   afterAll(() => {
@@ -172,6 +365,12 @@ describe('RHCRibbonLayoutComponent', () => {
     ]);
     fixture.componentRef.setInput('initialActiveTabId', '1');
     fixture.detectChanges();
+    drainAnimationFrames();
+  });
+
+  afterEach(() => {
+    pointerCaptures.clear();
+    animationFrameQueue.clear();
   });
 
   it('should create', () => {
@@ -230,7 +429,9 @@ describe('RHCRibbonLayoutComponent', () => {
     fixture.detectChanges();
 
     const emitSpy = vi.spyOn(component.tabRemove, 'emit');
-    const closeButton = fixture.nativeElement.querySelector('.ribbon-tab-close') as HTMLElement | null;
+    const closeButton = fixture.nativeElement.querySelector(
+      '.ribbon-tab-close',
+    ) as HTMLElement | null;
 
     expect(closeButton).not.toBeNull();
 
@@ -266,14 +467,18 @@ describe('RHCRibbonLayoutComponent', () => {
   });
 
   it('does not apply ellipsis styling to tab titles', () => {
-    const titleElement = fixture.nativeElement.querySelector('.ribbon-tab-title') as HTMLElement | null;
+    const titleElement = fixture.nativeElement.querySelector(
+      '.ribbon-tab-title',
+    ) as HTMLElement | null;
 
     expect(titleElement).not.toBeNull();
     expect(getComputedStyle(titleElement!).textOverflow).not.toBe('ellipsis');
   });
 
   it('applies the tab title font sizing from TAB_TITLE_FONT', () => {
-    const titleElement = fixture.nativeElement.querySelector('.ribbon-tab-title') as HTMLElement | null;
+    const titleElement = fixture.nativeElement.querySelector(
+      '.ribbon-tab-title',
+    ) as HTMLElement | null;
     const computedStyle = getComputedStyle(titleElement!);
 
     expect(titleElement).not.toBeNull();
@@ -281,23 +486,10 @@ describe('RHCRibbonLayoutComponent', () => {
     expect(computedStyle.fontWeight).toBe('500');
   });
 
-  it('renders the content area by default', () => {
-    const contentArea = fixture.nativeElement.querySelector('.rhc-ribbon-layout-content') as HTMLElement | null;
-
-    expect(contentArea).not.toBeNull();
-  });
-
-  it('does not render the content area when showContentArea is false', () => {
-    fixture.componentRef.setInput('showContentArea', false);
-    fixture.detectChanges();
-
-    const contentArea = fixture.nativeElement.querySelector('.rhc-ribbon-layout-content') as HTMLElement | null;
-
-    expect(contentArea).toBeNull();
-  });
-
   it('does not render a tab bar menu button by default', () => {
-    const menuButton = fixture.nativeElement.querySelector('.ribbon-tabs-menu-button') as HTMLElement | null;
+    const menuButton = fixture.nativeElement.querySelector(
+      '.ribbon-tabs-menu-button',
+    ) as HTMLElement | null;
     expect(menuButton).toBeNull();
   });
 
@@ -305,7 +497,9 @@ describe('RHCRibbonLayoutComponent', () => {
     fixture.componentRef.setInput('showTabBarMenuButton', true);
     fixture.detectChanges();
 
-    const menuButton = fixture.nativeElement.querySelector('.ribbon-tabs-menu-button') as HTMLElement | null;
+    const menuButton = fixture.nativeElement.querySelector(
+      '.ribbon-tabs-menu-button',
+    ) as HTMLElement | null;
     expect(menuButton).not.toBeNull();
   });
 
@@ -313,7 +507,9 @@ describe('RHCRibbonLayoutComponent', () => {
     fixture.componentRef.setInput('showTabBarMenuButton', true);
     fixture.detectChanges();
 
-    const menuButton = fixture.nativeElement.querySelector('.ribbon-tabs-menu-button') as HTMLElement | null;
+    const menuButton = fixture.nativeElement.querySelector(
+      '.ribbon-tabs-menu-button',
+    ) as HTMLElement | null;
     const computedStyle = getComputedStyle(menuButton!);
 
     expect(menuButton).not.toBeNull();
@@ -325,7 +521,9 @@ describe('RHCRibbonLayoutComponent', () => {
     fixture.componentRef.setInput('showTabBarMenuButton', true);
     fixture.detectChanges();
 
-    const menuButton = fixture.nativeElement.querySelector('.ribbon-tabs-menu-button') as HTMLElement | null;
+    const menuButton = fixture.nativeElement.querySelector(
+      '.ribbon-tabs-menu-button',
+    ) as HTMLElement | null;
     const computedStyle = getComputedStyle(menuButton!);
 
     expect(menuButton).not.toBeNull();
@@ -337,7 +535,9 @@ describe('RHCRibbonLayoutComponent', () => {
     fixture.componentRef.setInput('showTabBarMenuButton', true);
     fixture.detectChanges();
 
-    const menuButton = fixture.nativeElement.querySelector('.ribbon-tabs-menu-button') as HTMLElement | null;
+    const menuButton = fixture.nativeElement.querySelector(
+      '.ribbon-tabs-menu-button',
+    ) as HTMLElement | null;
     const computedStyle = getComputedStyle(menuButton!);
 
     expect(menuButton).not.toBeNull();
@@ -350,7 +550,9 @@ describe('RHCRibbonLayoutComponent', () => {
     fixture.componentRef.setInput('showTabBarMenuButton', true);
     fixture.detectChanges();
 
-    const menuButton = fixture.nativeElement.querySelector('.ribbon-tabs-menu-button') as HTMLElement | null;
+    const menuButton = fixture.nativeElement.querySelector(
+      '.ribbon-tabs-menu-button',
+    ) as HTMLElement | null;
     const computedStyle = getComputedStyle(menuButton!);
 
     expect(menuButton).not.toBeNull();
@@ -362,7 +564,9 @@ describe('RHCRibbonLayoutComponent', () => {
     fixture.componentRef.setInput('showTabBarMenuButton', true);
     fixture.detectChanges();
 
-    const tabsContent = fixture.nativeElement.querySelector('.ribbon-tabs-content') as HTMLElement | null;
+    const tabsContent = fixture.nativeElement.querySelector(
+      '.ribbon-tabs-content',
+    ) as HTMLElement | null;
 
     expect(tabsContent).not.toBeNull();
     expect(getComputedStyle(tabsContent!).overflow).toBe('hidden');
@@ -372,7 +576,9 @@ describe('RHCRibbonLayoutComponent', () => {
     fixture.componentRef.setInput('showTabBarMenuButton', true);
     fixture.detectChanges();
 
-    const menuMask = fixture.nativeElement.querySelector('.ribbon-tabs-menu-mask') as HTMLElement | null;
+    const menuMask = fixture.nativeElement.querySelector(
+      '.ribbon-tabs-menu-mask',
+    ) as HTMLElement | null;
     expect(menuMask).not.toBeNull();
   });
 
@@ -387,7 +593,9 @@ describe('RHCRibbonLayoutComponent', () => {
     ).scrollOffset.set(32);
     fixture.detectChanges();
 
-    const leadingMask = fixture.nativeElement.querySelector('.ribbon-tabs-leading-mask') as HTMLElement | null;
+    const leadingMask = fixture.nativeElement.querySelector(
+      '.ribbon-tabs-leading-mask',
+    ) as HTMLElement | null;
     expect(leadingMask).not.toBeNull();
   });
 
@@ -395,7 +603,9 @@ describe('RHCRibbonLayoutComponent', () => {
     fixture.componentRef.setInput('mode', 'compact');
     fixture.detectChanges();
 
-    const menuButton = fixture.nativeElement.querySelector('.ribbon-tabs-menu-button') as HTMLElement | null;
+    const menuButton = fixture.nativeElement.querySelector(
+      '.ribbon-tabs-menu-button',
+    ) as HTMLElement | null;
     expect(menuButton).toBeNull();
   });
 
@@ -404,7 +614,9 @@ describe('RHCRibbonLayoutComponent', () => {
     fixture.detectChanges();
 
     const emitSpy = vi.spyOn(component.tabBarMenuClick, 'emit');
-    const menuButton = fixture.nativeElement.querySelector('.ribbon-tabs-menu-button') as HTMLButtonElement | null;
+    const menuButton = fixture.nativeElement.querySelector(
+      '.ribbon-tabs-menu-button',
+    ) as HTMLButtonElement | null;
 
     expect(menuButton).not.toBeNull();
 
@@ -473,7 +685,9 @@ describe('RHCRibbonLayoutComponent', () => {
     fixture.detectChanges();
 
     const tabElement = fixture.nativeElement.querySelector('.ribbon-tab') as HTMLElement | null;
-    const titleElement = fixture.nativeElement.querySelector('.ribbon-tab-title') as HTMLElement | null;
+    const titleElement = fixture.nativeElement.querySelector(
+      '.ribbon-tab-title',
+    ) as HTMLElement | null;
     const width = Number.parseFloat(tabElement?.style.width ?? '0');
 
     expect(width).toBeLessThan(250);
@@ -491,8 +705,12 @@ describe('RHCRibbonLayoutComponent', () => {
     const tabElements = Array.from(fixture.nativeElement.querySelectorAll('.ribbon-tab'));
     const activeTab = tabElements[0] as HTMLElement;
     const inactiveTab = tabElements[1] as HTMLElement;
-    const activeBackground = activeTab.querySelector('.ribbon-tab-background') as HTMLElement | null;
-    const inactiveBackground = inactiveTab.querySelector('.ribbon-tab-background') as HTMLElement | null;
+    const activeBackground = activeTab.querySelector(
+      '.ribbon-tab-background',
+    ) as HTMLElement | null;
+    const inactiveBackground = inactiveTab.querySelector(
+      '.ribbon-tab-background',
+    ) as HTMLElement | null;
 
     expect(getComputedStyle(activeBackground!).opacity).toBe('1');
     expect(getComputedStyle(inactiveBackground!).opacity).toBe('0');
@@ -506,7 +724,9 @@ describe('RHCRibbonLayoutComponent', () => {
     ]);
     fixture.detectChanges();
 
-    const tabElements = Array.from(fixture.nativeElement.querySelectorAll('.ribbon-tab')) as HTMLElement[];
+    const tabElements = Array.from(
+      fixture.nativeElement.querySelectorAll('.ribbon-tab'),
+    ) as HTMLElement[];
     const activeTab = tabElements[0] as HTMLElement;
     const inactiveTab = tabElements[1] as HTMLElement;
     const activeTitle = activeTab.querySelector('.ribbon-tab-title') as HTMLElement | null;
@@ -526,7 +746,9 @@ describe('RHCRibbonLayoutComponent', () => {
     ]);
     fixture.detectChanges();
 
-    const tabElements = Array.from(fixture.nativeElement.querySelectorAll('.ribbon-tab')) as HTMLElement[];
+    const tabElements = Array.from(
+      fixture.nativeElement.querySelectorAll('.ribbon-tab'),
+    ) as HTMLElement[];
     const inactiveTab = tabElements[1] as HTMLElement;
 
     expect(inactiveTab.querySelector('.ribbon-tab-hover-overlay')).not.toBeNull();
@@ -541,7 +763,9 @@ describe('RHCRibbonLayoutComponent', () => {
     ]);
     fixture.detectChanges();
 
-    const tabElements = Array.from(fixture.nativeElement.querySelectorAll('.ribbon-tab')) as HTMLElement[];
+    const tabElements = Array.from(
+      fixture.nativeElement.querySelectorAll('.ribbon-tab'),
+    ) as HTMLElement[];
     const firstWidth = Number.parseFloat(tabElements[0]?.style.width ?? '0');
     const firstX = Number.parseFloat(
       tabElements[0]?.style.transform.match(/translate3d\(([-\d.]+)px/)?.[1] ?? '0',
@@ -558,8 +782,12 @@ describe('RHCRibbonLayoutComponent', () => {
     fixture.componentRef.setInput('mode', 'compact');
     fixture.detectChanges();
 
-    const bottomBar = fixture.nativeElement.querySelector('.ribbon-tabs-bottom-bar') as HTMLElement | null;
-    const content = fixture.nativeElement.querySelector('.rhc-ribbon-layout-content') as HTMLElement | null;
+    const bottomBar = fixture.nativeElement.querySelector(
+      '.ribbon-tabs-bottom-bar',
+    ) as HTMLElement | null;
+    const content = fixture.nativeElement.querySelector(
+      '.rhc-ribbon-layout-content',
+    ) as HTMLElement | null;
 
     expect(bottomBar).not.toBeNull();
     expect(getComputedStyle(bottomBar!).display).not.toBe('none');
@@ -705,21 +933,28 @@ describe('RHCRibbonLayoutComponent', () => {
     fixture.detectChanges();
 
     const emitSpy = vi.spyOn(component.tabReorder, 'emit');
-    const tabElements = Array.from(fixture.nativeElement.querySelectorAll('.ribbon-tab')) as HTMLElement[];
+    const tabElements = Array.from(
+      fixture.nativeElement.querySelectorAll('.ribbon-tab'),
+    ) as HTMLElement[];
     const firstTab = tabElements[0] as HTMLElement;
     const secondTab = tabElements[1] as HTMLElement;
-    const firstTabContent = firstTab.querySelector('.ribbon-tab-content') as HTMLButtonElement | null;
+    const firstTabContent = firstTab.querySelector(
+      '.ribbon-tab-content',
+    ) as HTMLButtonElement | null;
     const reorderedSlotTransform = secondTab.style.transform;
     const moveDelta = parseTranslateX(secondTab) - parseTranslateX(firstTab) + 8;
 
     dispatchPointerEvent(firstTabContent, 'pointerdown', { clientX: 100, timeStamp: 0 });
-    dispatchPointerEvent(firstTabContent, 'pointermove', { clientX: 100 + moveDelta, timeStamp: 16 });
+    dispatchPointerEvent(firstTabContent, 'pointermove', {
+      clientX: 100 + moveDelta,
+      timeStamp: 16,
+    });
     fixture.detectChanges();
     dispatchPointerEvent(firstTabContent, 'pointerup', { clientX: 100 + moveDelta, timeStamp: 32 });
     fixture.detectChanges();
 
-    const titles = Array.from(fixture.nativeElement.querySelectorAll('.ribbon-tab-title')).map((element) =>
-      (element as HTMLElement).textContent?.trim(),
+    const titles = Array.from(fixture.nativeElement.querySelectorAll('.ribbon-tab-title')).map(
+      (element) => (element as HTMLElement).textContent?.trim(),
     );
 
     expect(emitSpy).not.toHaveBeenCalled();
@@ -736,21 +971,28 @@ describe('RHCRibbonLayoutComponent', () => {
     fixture.detectChanges();
 
     const emitSpy = vi.spyOn(component.tabReorder, 'emit');
-    const tabElements = Array.from(fixture.nativeElement.querySelectorAll('.ribbon-tab')) as HTMLElement[];
+    const tabElements = Array.from(
+      fixture.nativeElement.querySelectorAll('.ribbon-tab'),
+    ) as HTMLElement[];
     const firstTab = tabElements[0] as HTMLElement;
     const secondTab = tabElements[1] as HTMLElement;
-    const firstTabContent = firstTab.querySelector('.ribbon-tab-content') as HTMLButtonElement | null;
+    const firstTabContent = firstTab.querySelector(
+      '.ribbon-tab-content',
+    ) as HTMLButtonElement | null;
     const reorderedSlotTransform = secondTab.style.transform;
     const moveDelta = parseTranslateX(secondTab) - parseTranslateX(firstTab) + 8;
 
     dispatchPointerEvent(firstTabContent, 'pointerdown', { clientX: 100, timeStamp: 0 });
-    dispatchPointerEvent(firstTabContent, 'pointermove', { clientX: 100 + moveDelta, timeStamp: 16 });
+    dispatchPointerEvent(firstTabContent, 'pointermove', {
+      clientX: 100 + moveDelta,
+      timeStamp: 16,
+    });
     fixture.detectChanges();
     dispatchPointerEvent(firstTabContent, 'pointerup', { clientX: 100 + moveDelta, timeStamp: 32 });
     fixture.detectChanges();
 
-    const titles = Array.from(fixture.nativeElement.querySelectorAll('.ribbon-tab-title')).map((element) =>
-      (element as HTMLElement).textContent?.trim(),
+    const titles = Array.from(fixture.nativeElement.querySelectorAll('.ribbon-tab-title')).map(
+      (element) => (element as HTMLElement).textContent?.trim(),
     );
 
     expect(emitSpy).toHaveBeenCalledWith(
@@ -774,21 +1016,28 @@ describe('RHCRibbonLayoutComponent', () => {
     fixture.detectChanges();
 
     const emitSpy = vi.spyOn(component.tabReorder, 'emit');
-    const tabElements = Array.from(fixture.nativeElement.querySelectorAll('.ribbon-tab')) as HTMLElement[];
+    const tabElements = Array.from(
+      fixture.nativeElement.querySelectorAll('.ribbon-tab'),
+    ) as HTMLElement[];
     const firstTab = tabElements[0] as HTMLElement;
     const secondTab = tabElements[1] as HTMLElement;
-    const firstTabContent = firstTab.querySelector('.ribbon-tab-content') as HTMLButtonElement | null;
+    const firstTabContent = firstTab.querySelector(
+      '.ribbon-tab-content',
+    ) as HTMLButtonElement | null;
     const reorderedSlotTransform = secondTab.style.transform;
     const moveDelta = parseTranslateX(secondTab) - parseTranslateX(firstTab) + 8;
 
     dispatchPointerEvent(firstTabContent, 'pointerdown', { clientX: 120, timeStamp: 0 });
-    dispatchPointerEvent(firstTabContent, 'pointermove', { clientX: 120 + moveDelta, timeStamp: 16 });
+    dispatchPointerEvent(firstTabContent, 'pointermove', {
+      clientX: 120 + moveDelta,
+      timeStamp: 16,
+    });
     fixture.detectChanges();
     dispatchPointerEvent(firstTabContent, 'pointerup', { clientX: 120 + moveDelta, timeStamp: 32 });
     fixture.detectChanges();
 
-    const titles = Array.from(fixture.nativeElement.querySelectorAll('.ribbon-tab-title')).map((element) =>
-      (element as HTMLElement).textContent?.trim(),
+    const titles = Array.from(fixture.nativeElement.querySelectorAll('.ribbon-tab-title')).map(
+      (element) => (element as HTMLElement).textContent?.trim(),
     );
 
     expect(emitSpy).toHaveBeenCalledWith(
@@ -810,7 +1059,9 @@ describe('RHCRibbonLayoutComponent', () => {
     fixture.detectChanges();
 
     const emitSpy = vi.spyOn(component.tabReorder, 'emit');
-    const closeButton = fixture.nativeElement.querySelector('.ribbon-tab-close') as HTMLElement | null;
+    const closeButton = fixture.nativeElement.querySelector(
+      '.ribbon-tab-close',
+    ) as HTMLElement | null;
 
     dispatchPointerEvent(closeButton, 'pointerdown', { clientX: 100, timeStamp: 0 });
     dispatchPointerEvent(closeButton, 'pointermove', { clientX: 180, timeStamp: 16 });
@@ -849,15 +1100,22 @@ describe('RHCRibbonLayoutComponent', () => {
     ]);
     fixture.detectChanges();
 
-    const tabElements = Array.from(fixture.nativeElement.querySelectorAll('.ribbon-tab')) as HTMLElement[];
+    const tabElements = Array.from(
+      fixture.nativeElement.querySelectorAll('.ribbon-tab'),
+    ) as HTMLElement[];
     const firstTab = tabElements[0] as HTMLElement;
     const secondTab = tabElements[1] as HTMLElement;
-    const firstTabContent = firstTab.querySelector('.ribbon-tab-content') as HTMLButtonElement | null;
+    const firstTabContent = firstTab.querySelector(
+      '.ribbon-tab-content',
+    ) as HTMLButtonElement | null;
     const reorderedSlotTransform = secondTab.style.transform;
     const moveDelta = parseTranslateX(secondTab) - parseTranslateX(firstTab) + 8;
 
     dispatchPointerEvent(firstTabContent, 'pointerdown', { clientX: 100, timeStamp: 0 });
-    dispatchPointerEvent(firstTabContent, 'pointermove', { clientX: 100 + moveDelta, timeStamp: 16 });
+    dispatchPointerEvent(firstTabContent, 'pointermove', {
+      clientX: 100 + moveDelta,
+      timeStamp: 16,
+    });
     fixture.detectChanges();
 
     expect(firstTab.classList.contains('ribbon-tab--dragging')).toBe(true);
@@ -870,6 +1128,141 @@ describe('RHCRibbonLayoutComponent', () => {
 
     expect(firstTab.classList.contains('ribbon-tab--dragging')).toBe(false);
     expect(firstTab.style.transform).toBe(reorderedSlotTransform);
+  });
+});
+
+describe('RHCRibbonLayoutComponent content horizontal scroll', () => {
+  let fixture: ComponentFixture<RibbonLayoutContentScrollHostComponent>;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [RibbonLayoutContentScrollHostComponent],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(RibbonLayoutContentScrollHostComponent);
+    fixture.detectChanges();
+    drainAnimationFrames();
+  });
+
+  it('does not apply compact mode before entering content horizontal scrolling', () => {
+    const { track } = configureContentScrollMeasurements(fixture, {
+      viewportWidth: 320,
+      naturalTrackWidth: 620,
+    });
+
+    expect(track.classList.contains('compact-mode')).toBe(false);
+  });
+
+  it('renders content edge masks when natural content overflows', () => {
+    configureContentScrollMeasurements(fixture, {
+      viewportWidth: 320,
+      naturalTrackWidth: 620,
+    });
+
+    const trailingMask = fixture.nativeElement.querySelector(
+      '.rhc-ribbon-layout-content-mask--trailing',
+    ) as HTMLElement | null;
+
+    expect(trailingMask).not.toBeNull();
+  });
+
+  it('maps wheel input into horizontal content scrolling', () => {
+    const { viewport, track } = configureContentScrollMeasurements(fixture, {
+      viewportWidth: 320,
+      naturalTrackWidth: 620,
+    });
+
+    viewport.dispatchEvent(
+      new WheelEvent('wheel', { deltaY: 96, bubbles: true, cancelable: true }),
+    );
+    fixture.detectChanges();
+
+    expect(parseTranslateX(track)).toBeLessThan(0);
+  });
+
+  it('starts content dragging from the group background', () => {
+    const { track } = configureContentScrollMeasurements(fixture, {
+      viewportWidth: 320,
+      naturalTrackWidth: 620,
+    });
+
+    const group = fixture.nativeElement.querySelector('.content-group') as HTMLElement | null;
+
+    dispatchPointerEvent(group, 'pointerdown', {
+      pointerType: 'touch',
+      clientX: 220,
+      timeStamp: 0,
+    });
+    dispatchPointerEvent(group, 'pointermove', {
+      pointerType: 'touch',
+      clientX: 120,
+      timeStamp: 16,
+    });
+    fixture.detectChanges();
+    dispatchPointerEvent(group, 'pointerup', { pointerType: 'touch', clientX: 120, timeStamp: 32 });
+    fixture.detectChanges();
+
+    expect(parseTranslateX(track)).toBeLessThan(0);
+  });
+
+  it('allows content dragging from buttons and suppresses the click after a drag gesture', () => {
+    const { track } = configureContentScrollMeasurements(fixture, {
+      viewportWidth: 320,
+      naturalTrackWidth: 620,
+    });
+
+    const button = fixture.nativeElement.querySelector('.content-action') as HTMLElement | null;
+
+    dispatchPointerEvent(button, 'pointerdown', {
+      pointerType: 'touch',
+      clientX: 220,
+      timeStamp: 0,
+    });
+    dispatchPointerEvent(button, 'pointermove', {
+      pointerType: 'touch',
+      clientX: 120,
+      timeStamp: 16,
+    });
+    fixture.detectChanges();
+    dispatchPointerEvent(button, 'pointerup', {
+      pointerType: 'touch',
+      clientX: 120,
+      timeStamp: 32,
+    });
+    button?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    fixture.detectChanges();
+
+    expect(parseTranslateX(track)).toBeLessThan(0);
+    expect(fixture.componentInstance.buttonClicks).toBe(0);
+  });
+
+  it('applies elastic overscroll and springs back after release', () => {
+    const { track } = configureContentScrollMeasurements(fixture, {
+      viewportWidth: 320,
+      naturalTrackWidth: 620,
+    });
+
+    const group = fixture.nativeElement.querySelector('.content-group') as HTMLElement | null;
+
+    dispatchPointerEvent(group, 'pointerdown', {
+      pointerType: 'touch',
+      clientX: 200,
+      timeStamp: 0,
+    });
+    dispatchPointerEvent(group, 'pointermove', {
+      pointerType: 'touch',
+      clientX: 360,
+      timeStamp: 16,
+    });
+    fixture.detectChanges();
+
+    expect(parseTranslateX(track)).toBeGreaterThan(0);
+
+    dispatchPointerEvent(group, 'pointerup', { pointerType: 'touch', clientX: 360, timeStamp: 32 });
+    drainAnimationFrames(12);
+    fixture.detectChanges();
+
+    expect(parseTranslateX(track)).toBe(0);
   });
 });
 
@@ -888,12 +1281,16 @@ describe('RHCRibbonLayoutComponent tab bar menu overlay', () => {
   });
 
   it('renders the external menu template in an overlay when the menu button is clicked', () => {
-    const menuButton = fixture.nativeElement.querySelector('.ribbon-tabs-menu-button') as HTMLButtonElement | null;
+    const menuButton = fixture.nativeElement.querySelector(
+      '.ribbon-tabs-menu-button',
+    ) as HTMLButtonElement | null;
 
     menuButton?.click();
     fixture.detectChanges();
 
-    const overlayMenu = document.body.querySelector('.ribbon-tabs-menu-overlay') as HTMLElement | null;
+    const overlayMenu = document.body.querySelector(
+      '.ribbon-tabs-menu-overlay',
+    ) as HTMLElement | null;
 
     expect(host.menuClicks).toHaveLength(1);
     expect(overlayMenu).not.toBeNull();
@@ -901,7 +1298,9 @@ describe('RHCRibbonLayoutComponent tab bar menu overlay', () => {
   });
 
   it('keeps the menu button in an open visual state while the overlay is visible', () => {
-    const menuButton = fixture.nativeElement.querySelector('.ribbon-tabs-menu-button') as HTMLButtonElement | null;
+    const menuButton = fixture.nativeElement.querySelector(
+      '.ribbon-tabs-menu-button',
+    ) as HTMLButtonElement | null;
 
     expect(menuButton).not.toBeNull();
     expect(menuButton?.classList.contains('ribbon-tabs-menu-button--open')).toBe(false);
@@ -911,7 +1310,9 @@ describe('RHCRibbonLayoutComponent tab bar menu overlay', () => {
 
     expect(menuButton?.classList.contains('ribbon-tabs-menu-button--open')).toBe(true);
 
-    const closeButton = document.body.querySelector('.test-tab-bar-menu-close') as HTMLButtonElement | null;
+    const closeButton = document.body.querySelector(
+      '.test-tab-bar-menu-close',
+    ) as HTMLButtonElement | null;
     closeButton?.click();
     fixture.detectChanges();
 
@@ -919,16 +1320,22 @@ describe('RHCRibbonLayoutComponent tab bar menu overlay', () => {
   });
 
   it('closes the overlay when the template context close callback is used', () => {
-    const menuButton = fixture.nativeElement.querySelector('.ribbon-tabs-menu-button') as HTMLButtonElement | null;
+    const menuButton = fixture.nativeElement.querySelector(
+      '.ribbon-tabs-menu-button',
+    ) as HTMLButtonElement | null;
 
     menuButton?.click();
     fixture.detectChanges();
 
-    const closeButton = document.body.querySelector('.test-tab-bar-menu-close') as HTMLButtonElement | null;
+    const closeButton = document.body.querySelector(
+      '.test-tab-bar-menu-close',
+    ) as HTMLButtonElement | null;
     closeButton?.click();
     fixture.detectChanges();
 
-    const overlayMenu = document.body.querySelector('.ribbon-tabs-menu-overlay') as HTMLElement | null;
+    const overlayMenu = document.body.querySelector(
+      '.ribbon-tabs-menu-overlay',
+    ) as HTMLElement | null;
     expect(overlayMenu).toBeNull();
   });
 });

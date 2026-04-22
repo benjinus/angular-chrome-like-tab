@@ -2,7 +2,8 @@
   display: block;
   width: 100%;
   --tab-content-margin: 9px;
-  --tab-title-font: 500 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --tab-title-font:
+    500 13px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   --tab-bar-menu-reserved-width: 60px;
   --tab-bar-menu-button-inset: 6px;
   --tab-bar-menu-button-size: 32px;
@@ -19,6 +20,9 @@
   --compact-tab-hover-overlay-radius: 8px;
   --compact-tab-hover-mask-opacity: 0.18;
   --compact-tab-hover-mask-color: 224, 229, 237;
+  --content-mask-width: 36px;
+  --content-mask-solid-stop: 24%;
+  --content-mask-color: 255, 255, 255;
 }
 
 .ribbon-tabs-shell {
@@ -30,6 +34,7 @@
   --tab-bar-mask-color: 32, 33, 36;
   --compact-tab-hover-mask-color: 30, 35, 43;
   --compact-tab-hover-mask-opacity: 0.24;
+  --content-mask-color: 50, 54, 57;
 }
 
 .ribbon-tabs-shell--compact {
@@ -40,8 +45,8 @@
   box-sizing: border-box;
   position: relative;
   font-family:
-    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif,
-    "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif,
+    'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
   font-size: 12px;
   height: 46px;
   padding: 8px 3px 4px;
@@ -223,9 +228,12 @@
   background: linear-gradient(
     90deg,
     rgba(var(--compact-tab-hover-mask-color), var(--compact-tab-hover-mask-opacity)) 0%,
-    rgba(var(--compact-tab-hover-mask-color), calc(var(--compact-tab-hover-mask-opacity) * 0.14)) 20%,
-    rgba(var(--compact-tab-hover-mask-color), calc(var(--compact-tab-hover-mask-opacity) * 0.03)) 50%,
-    rgba(var(--compact-tab-hover-mask-color), calc(var(--compact-tab-hover-mask-opacity) * 0.14)) 80%,
+    rgba(var(--compact-tab-hover-mask-color), calc(var(--compact-tab-hover-mask-opacity) * 0.14))
+      20%,
+    rgba(var(--compact-tab-hover-mask-color), calc(var(--compact-tab-hover-mask-opacity) * 0.03))
+      50%,
+    rgba(var(--compact-tab-hover-mask-color), calc(var(--compact-tab-hover-mask-opacity) * 0.14))
+      80%,
     rgba(var(--compact-tab-hover-mask-color), var(--compact-tab-hover-mask-opacity)) 100%
   );
 }
@@ -497,11 +505,6 @@
 
 .ribbon-tabs-menu-overlay {
   min-width: 220px;
-  padding: 0.5rem;
-  border: 1px solid rgba(127, 139, 161, 0.28);
-  border-radius: 1rem;
-  background: rgba(255, 255, 255, 0.96);
-  box-shadow: 0 18px 48px rgba(41, 53, 76, 0.24);
 }
 
 .ribbon-tabs-bottom-bar {
@@ -555,7 +558,7 @@
 
 .ribbon-tabs-dark-theme.ribbon-tabs--compact .ribbon-tab-background {
   border-color: #2b2c2d;
-  background: rgb(36 38 39);;
+  background: rgb(36 38 39);
   opacity: 0;
 }
 
@@ -621,9 +624,9 @@
 }
 
 .ribbon-tabs-dark-theme .ribbon-tabs-bottom-bar {
-    left: 0;
-    right: 0;
-    background: rgb(50 54 57);
+  left: 0;
+  right: 0;
+  background: rgb(50 54 57);
 }
 
 .rhc-ribbon-layout-content {
@@ -634,6 +637,10 @@
     background 160ms ease,
     border-color 160ms ease,
     color 160ms ease;
+}
+
+.rhc-ribbon-layout-content--scroll-enabled {
+  position: relative;
 }
 
 .rhc-ribbon-layout-content--dark {
@@ -657,6 +664,54 @@
 .rhc-ribbon-layout-content--empty {
   display: grid;
   place-items: center;
+}
+
+.rhc-ribbon-layout-content-viewport {
+  position: relative;
+}
+
+.rhc-ribbon-layout-content--scroll-enabled .rhc-ribbon-layout-content-viewport {
+  overflow: hidden;
+  touch-action: pan-y;
+}
+
+.rhc-ribbon-layout-content-track {
+  position: relative;
+  width: fit-content;
+  min-width: 100%;
+}
+
+.rhc-ribbon-layout-content--scroll-enabled .rhc-ribbon-layout-content-track {
+  width: max-content;
+  min-width: 100%;
+  will-change: transform;
+}
+
+.rhc-ribbon-layout-content-mask {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 2;
+  width: var(--content-mask-width);
+  pointer-events: none;
+}
+
+.rhc-ribbon-layout-content-mask--leading {
+  left: 0;
+  background: linear-gradient(
+    90deg,
+    rgba(var(--content-mask-color), 0.98) var(--content-mask-solid-stop),
+    rgba(var(--content-mask-color), 0) 100%
+  );
+}
+
+.rhc-ribbon-layout-content-mask--trailing {
+  right: 0;
+  background: linear-gradient(
+    90deg,
+    rgba(var(--content-mask-color), 0) 0%,
+    rgba(var(--content-mask-color), 0.98) calc(100% - var(--content-mask-solid-stop))
+  );
 }
 
 .rhc-ribbon-layout-empty-state {

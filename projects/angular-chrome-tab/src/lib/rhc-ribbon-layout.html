@@ -146,14 +146,43 @@
       [class.rhc-ribbon-layout-content--empty]="!activeTab()"
       [class.rhc-ribbon-layout-content--dark]="theme() === 'dark'"
       [class.rhc-ribbon-layout-content--compact]="mode() === 'compact'"
+      [class.rhc-ribbon-layout-content--scroll-enabled]="enableContentAreaHorizontalScroll()"
       [class]="activeTabContentContainerClass()"
     >
       @if (activeTab(); as activeTab) {
         @if (activeTab.contentTemplate) {
-          <ng-container
-            [ngTemplateOutlet]="activeTab.contentTemplate"
-            [ngTemplateOutletContext]="activeTabContentContext()"
-          />
+          <div
+            class="rhc-ribbon-layout-content-viewport"
+            #contentViewport
+            [class.rhc-ribbon-layout-content-viewport--scrollable]="canScrollContent()"
+            (wheel)="handleContentWheel($event)"
+            (pointerdown)="handleContentPointerDown($event)"
+            (pointermove)="handleContentPointerMove($event)"
+            (pointerup)="handleContentPointerUp($event)"
+            (pointercancel)="handleContentPointerUp($event)"
+            (lostpointercapture)="handleContentPointerUp($event)"
+          >
+            @if (showLeadingContentMask()) {
+              <div
+                class="rhc-ribbon-layout-content-mask rhc-ribbon-layout-content-mask--leading"
+              ></div>
+            }
+            @if (showTrailingContentMask()) {
+              <div
+                class="rhc-ribbon-layout-content-mask rhc-ribbon-layout-content-mask--trailing"
+              ></div>
+            }
+            <div
+              class="rhc-ribbon-layout-content-track"
+              #contentTrack
+              [style.transform]="contentTrackTransform()"
+            >
+              <ng-container
+                [ngTemplateOutlet]="activeTab.contentTemplate"
+                [ngTemplateOutletContext]="activeTabContentContext()"
+              />
+            </div>
+          </div>
         } @else {
           <div class="rhc-ribbon-layout-empty-state">No content template provided.</div>
         }
