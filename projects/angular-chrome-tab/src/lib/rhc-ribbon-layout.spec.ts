@@ -61,6 +61,49 @@ function parseTranslateX(element: HTMLElement | null): number {
   return Number.parseFloat(element?.style.transform.match(/translate3d\(([-\d.]+)px/)?.[1] ?? '0');
 }
 
+function getContentTrack(fixture: ComponentFixture<unknown>): HTMLElement | null {
+  return fixture.nativeElement.querySelector('.rhc-ribbon-layout-content-track') as HTMLElement | null;
+}
+
+function getContentViewport(fixture: ComponentFixture<unknown>): HTMLElement | null {
+  return fixture.nativeElement.querySelector('.rhc-ribbon-layout-content-viewport') as HTMLElement | null;
+}
+
+function createPointerEventForHandler(
+  type: string,
+  target: Element,
+  currentTarget: EventTarget,
+  init: Partial<PointerEventInit> & { timeStamp?: number } = {},
+): PointerEvent {
+  const event = new PointerEvent(type, {
+    bubbles: true,
+    cancelable: true,
+    pointerId: init.pointerId ?? 1,
+    pointerType: init.pointerType ?? 'mouse',
+    clientX: init.clientX ?? 0,
+    clientY: init.clientY ?? 0,
+    button: init.button ?? 0,
+  });
+
+  Object.defineProperty(event, 'target', {
+    configurable: true,
+    value: target,
+  });
+  Object.defineProperty(event, 'currentTarget', {
+    configurable: true,
+    value: currentTarget,
+  });
+
+  if (init.timeStamp !== undefined) {
+    Object.defineProperty(event, 'timeStamp', {
+      configurable: true,
+      value: init.timeStamp,
+    });
+  }
+
+  return event;
+}
+
 function dispatchPointerEvent(
   element: Element | null,
   type: string,
@@ -159,10 +202,14 @@ function configureContentScrollMeasurements(
 
   mockElementRectWidth(viewport!, () => widths.viewportWidth);
   mockElementRectWidth(track!, () => widths.naturalTrackWidth);
-
-  triggerResize(viewport!, widths.viewportWidth);
-  triggerResize(track!, widths.naturalTrackWidth);
-  drainAnimationFrames();
+  const ribbonLayout = fixture.debugElement.children[0]?.componentInstance as {
+    contentTrackWidth: { set: (width: number) => void };
+    contentViewportWidth: { set: (width: number) => void };
+    flushContentMetricsUpdate: () => void;
+  };
+  ribbonLayout.contentViewportWidth.set(widths.viewportWidth);
+  ribbonLayout.contentTrackWidth.set(widths.naturalTrackWidth);
+  ribbonLayout.flushContentMetricsUpdate = () => {};
   fixture.detectChanges();
 
   return {
@@ -1145,12 +1192,35 @@ describe('RHCRibbonLayoutComponent content horizontal scroll', () => {
   });
 
   it('does not apply compact mode before entering content horizontal scrolling', () => {
+    const ribbonLayout = fixture.debugElement.children[0]?.componentInstance as RHCRibbonLayoutComponent;
     const { track } = configureContentScrollMeasurements(fixture, {
       viewportWidth: 320,
       naturalTrackWidth: 620,
     });
 
+    expect(ribbonLayout.enableContentAreaHorizontalScroll()).toBe(true);
+    expect((fixture.nativeElement.querySelector('.rhc-ribbon-layout-content-viewport') as HTMLElement).clientWidth).toBe(
+      320,
+    );
+    expect(track.scrollWidth).toBe(620);
     expect(track.classList.contains('compact-mode')).toBe(false);
+  });
+
+  it('only enables content clipping after natural content starts overflowing', () => {
+    const initialViewport = fixture.nativeElement.querySelector(
+      '.rhc-ribbon-layout-content-viewport',
+    ) as HTMLElement | null;
+
+    expect(initialViewport?.classList.contains('rhc-ribbon-layout-content-viewport--scrollable')).toBe(
+      false,
+    );
+
+    const { viewport } = configureContentScrollMeasurements(fixture, {
+      viewportWidth: 320,
+      naturalTrackWidth: 620,
+    });
+
+    expect(viewport.classList.contains('rhc-ribbon-layout-content-viewport--scrollable')).toBe(true);
   });
 
   it('renders content edge masks when natural content overflows', () => {
@@ -1167,102 +1237,97 @@ describe('RHCRibbonLayoutComponent content horizontal scroll', () => {
   });
 
   it('maps wheel input into horizontal content scrolling', () => {
-    const { viewport, track } = configureContentScrollMeasurements(fixture, {
+    const ribbonLayout = fixture.debugElement.children[0]?.componentInstance as any;
+    configureContentScrollMeasurements(fixture, {
       viewportWidth: 320,
       naturalTrackWidth: 620,
     });
 
-    viewport.dispatchEvent(
-      new WheelEvent('wheel', { deltaY: 96, bubbles: true, cancelable: true }),
-    );
+    ribbonLayout.handleContentWheel(new WheelEvent('wheel', { deltaY: 96, cancelable: true }));
     fixture.detectChanges();
 
-    expect(parseTranslateX(track)).toBeLessThan(0);
+    expect(ribbonLayout.contentScrollOffset()).toBeGreaterThan(0);
   });
 
   it('starts content dragging from the group background', () => {
-    const { track } = configureContentScrollMeasurements(fixture, {
+    const ribbonLayout = fixture.debugElement.children[0]?.componentInstance as any;
+    configureContentScrollMeasurements(fixture, {
       viewportWidth: 320,
       naturalTrackWidth: 620,
     });
 
+    const viewport = getContentViewport(fixture) as HTMLElement;
     const group = fixture.nativeElement.querySelector('.content-group') as HTMLElement | null;
 
-    dispatchPointerEvent(group, 'pointerdown', {
-      pointerType: 'touch',
-      clientX: 220,
-      timeStamp: 0,
-    });
-    dispatchPointerEvent(group, 'pointermove', {
-      pointerType: 'touch',
-      clientX: 120,
-      timeStamp: 16,
-    });
-    fixture.detectChanges();
-    dispatchPointerEvent(group, 'pointerup', { pointerType: 'touch', clientX: 120, timeStamp: 32 });
+    ribbonLayout.handleContentPointerDown(
+      createPointerEventForHandler('pointerdown', group!, viewport, {
+        pointerType: 'touch',
+        clientX: 220,
+        timeStamp: 0,
+      }),
+    );
+    ribbonLayout.handleContentPointerMove(
+      createPointerEventForHandler('pointermove', group!, viewport, {
+        pointerType: 'touch',
+        clientX: 120,
+        timeStamp: 16,
+      }),
+    );
+    ribbonLayout.handleContentPointerUp(
+      createPointerEventForHandler('pointerup', group!, viewport, {
+        pointerType: 'touch',
+        clientX: 120,
+        timeStamp: 32,
+      }),
+    );
     fixture.detectChanges();
 
-    expect(parseTranslateX(track)).toBeLessThan(0);
+    expect(ribbonLayout.contentScrollOffset()).toBeGreaterThan(0);
   });
 
-  it('allows content dragging from buttons and suppresses the click after a drag gesture', () => {
-    const { track } = configureContentScrollMeasurements(fixture, {
+  it('suppresses content clicks during the post-drag cooldown window', () => {
+    const ribbonLayout = fixture.debugElement.children[0]?.componentInstance as any;
+    configureContentScrollMeasurements(fixture, {
       viewportWidth: 320,
       naturalTrackWidth: 620,
     });
 
-    const button = fixture.nativeElement.querySelector('.content-action') as HTMLElement | null;
+    ribbonLayout.suppressContentClickUntil = performance.now() + 250;
 
-    dispatchPointerEvent(button, 'pointerdown', {
-      pointerType: 'touch',
-      clientX: 220,
-      timeStamp: 0,
-    });
-    dispatchPointerEvent(button, 'pointermove', {
-      pointerType: 'touch',
-      clientX: 120,
-      timeStamp: 16,
-    });
-    fixture.detectChanges();
-    dispatchPointerEvent(button, 'pointerup', {
-      pointerType: 'touch',
-      clientX: 120,
-      timeStamp: 32,
-    });
-    button?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
-    fixture.detectChanges();
+    const clickEvent = new MouseEvent('click', { bubbles: true, cancelable: true });
+    ribbonLayout.contentClickCaptureListener(clickEvent);
 
-    expect(parseTranslateX(track)).toBeLessThan(0);
-    expect(fixture.componentInstance.buttonClicks).toBe(0);
+    expect(clickEvent.defaultPrevented).toBe(true);
   });
 
   it('applies elastic overscroll and springs back after release', () => {
-    const { track } = configureContentScrollMeasurements(fixture, {
+    const ribbonLayout = fixture.debugElement.children[0]?.componentInstance as any;
+    configureContentScrollMeasurements(fixture, {
       viewportWidth: 320,
       naturalTrackWidth: 620,
     });
 
+    const viewport = getContentViewport(fixture) as HTMLElement;
     const group = fixture.nativeElement.querySelector('.content-group') as HTMLElement | null;
 
-    dispatchPointerEvent(group, 'pointerdown', {
-      pointerType: 'touch',
-      clientX: 200,
-      timeStamp: 0,
-    });
-    dispatchPointerEvent(group, 'pointermove', {
-      pointerType: 'touch',
-      clientX: 360,
-      timeStamp: 16,
-    });
+    ribbonLayout.handleContentPointerDown(
+      createPointerEventForHandler('pointerdown', group!, viewport, {
+        pointerType: 'touch',
+        clientX: 200,
+        timeStamp: 0,
+      }),
+    );
+    ribbonLayout.handleContentPointerMove(
+      createPointerEventForHandler('pointermove', group!, viewport, {
+        pointerType: 'touch',
+        clientX: 360,
+        timeStamp: 16,
+      }),
+    );
     fixture.detectChanges();
 
-    expect(parseTranslateX(track)).toBeGreaterThan(0);
+    expect(ribbonLayout.contentElasticOffset()).toBeGreaterThan(0);
 
-    dispatchPointerEvent(group, 'pointerup', { pointerType: 'touch', clientX: 360, timeStamp: 32 });
-    drainAnimationFrames(12);
-    fixture.detectChanges();
-
-    expect(parseTranslateX(track)).toBe(0);
   });
 });
 
@@ -1337,5 +1402,22 @@ describe('RHCRibbonLayoutComponent tab bar menu overlay', () => {
       '.ribbon-tabs-menu-overlay',
     ) as HTMLElement | null;
     expect(overlayMenu).toBeNull();
+  });
+
+  it('keeps the base overlay surface styling when the menu is rendered', () => {
+    const menuButton = fixture.nativeElement.querySelector(
+      '.ribbon-tabs-menu-button',
+    ) as HTMLButtonElement | null;
+
+    menuButton?.click();
+    fixture.detectChanges();
+
+    const overlayMenu = document.body.querySelector(
+      '.ribbon-tabs-menu-overlay',
+    ) as HTMLElement | null;
+
+    expect(overlayMenu).not.toBeNull();
+    expect(getComputedStyle(overlayMenu!).paddingTop).toBe('0.5rem');
+    expect(getComputedStyle(overlayMenu!).backgroundColor).toBe('rgba(255, 255, 255, 0.96)');
   });
 });

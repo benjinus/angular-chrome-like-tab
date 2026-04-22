@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { ConnectedPosition, OverlayModule } from '@angular/cdk/overlay';
 import {
+  AfterViewChecked,
   AfterViewInit,
   Component,
   ElementRef,
@@ -311,7 +312,7 @@ interface RHCRibbonContentDragState {
     '[style.--tab-title-font]': 'tabTitleFont',
   },
 })
-export class RHCRibbonLayoutComponent implements AfterViewInit, OnDestroy {
+export class RHCRibbonLayoutComponent implements AfterViewInit, AfterViewChecked, OnDestroy {
   readonly tabs = input<RHCRibbonLayoutTab[]>([]);
   readonly mode = input<RHCRibbonLayoutMode>('default');
   readonly showContentArea = input(true);
@@ -438,7 +439,7 @@ export class RHCRibbonLayoutComponent implements AfterViewInit, OnDestroy {
       return;
     }
 
-    if (event.timeStamp > this.suppressContentClickUntil) {
+    if (performance.now() > this.suppressContentClickUntil) {
       return;
     }
 
@@ -454,11 +455,8 @@ export class RHCRibbonLayoutComponent implements AfterViewInit, OnDestroy {
   @ViewChild('content', { static: true })
   private readonly contentRef?: ElementRef<HTMLElement>;
 
-  @ViewChild('contentViewport')
-  private readonly contentViewportRef?: ElementRef<HTMLElement>;
-
-  @ViewChild('contentTrack')
-  private readonly contentTrackRef?: ElementRef<HTMLElement>;
+  @ViewChild('contentArea')
+  private readonly contentAreaRef?: ElementRef<HTMLElement>;
 
   constructor() {
     effect(() => {
@@ -565,8 +563,8 @@ export class RHCRibbonLayoutComponent implements AfterViewInit, OnDestroy {
         }
 
         if (
-          entry.target === this.contentViewportRef?.nativeElement ||
-          entry.target === this.contentTrackRef?.nativeElement
+          entry.target === this.getContentViewportElement() ||
+          entry.target === this.getContentTrackElement()
         ) {
           this.scheduleContentMetricsUpdate();
         }
@@ -575,7 +573,16 @@ export class RHCRibbonLayoutComponent implements AfterViewInit, OnDestroy {
     this.resizeObserver.observe(contentElement);
     this.hasViewInitialized = true;
     this.observeContentScrollElements();
+    this.measureContentMetrics();
     this.scheduleContentMetricsUpdate();
+  }
+
+  ngAfterViewChecked(): void {
+    if (!this.hasViewInitialized || !this.enableContentAreaHorizontalScroll()) {
+      return;
+    }
+    this.observeContentScrollElements();
+    this.measureContentMetrics();
   }
 
   ngOnDestroy(): void {
@@ -854,6 +861,8 @@ export class RHCRibbonLayoutComponent implements AfterViewInit, OnDestroy {
   }
 
   protected handleContentWheel(event: WheelEvent): void {
+    this.flushContentMetricsUpdate();
+
     if (!this.canScrollContent()) {
       return;
     }
@@ -876,6 +885,8 @@ export class RHCRibbonLayoutComponent implements AfterViewInit, OnDestroy {
   }
 
   protected handleContentPointerDown(event: PointerEvent): void {
+    this.flushContentMetricsUpdate();
+
     if (!this.canScrollContent()) {
       return;
     }
@@ -936,7 +947,7 @@ export class RHCRibbonLayoutComponent implements AfterViewInit, OnDestroy {
     this.contentDragState = null;
 
     if (didDrag) {
-      this.suppressContentClickUntil = event.timeStamp + 250;
+      this.suppressContentClickUntil = performance.now() + 250;
     }
 
     if (shouldBounce) {
@@ -1096,8 +1107,8 @@ export class RHCRibbonLayoutComponent implements AfterViewInit, OnDestroy {
       return;
     }
 
-    const viewport = this.contentViewportRef?.nativeElement ?? null;
-    const track = this.contentTrackRef?.nativeElement ?? null;
+    const viewport = this.getContentViewportElement();
+    const track = this.getContentTrackElement();
 
     if (this.observedContentViewport && this.observedContentViewport !== viewport) {
       this.observedContentViewport.removeEventListener(
@@ -1142,9 +1153,24 @@ export class RHCRibbonLayoutComponent implements AfterViewInit, OnDestroy {
     });
   }
 
+  private flushContentMetricsUpdate(): void {
+    if (!this.enableContentAreaHorizontalScroll()) {
+      return;
+    }
+
+    this.observeContentScrollElements();
+
+    if (this.contentMeasureFrame !== null) {
+      cancelAnimationFrame(this.contentMeasureFrame);
+      this.contentMeasureFrame = null;
+    }
+
+    this.measureContentMetrics();
+  }
+
   private measureContentMetrics(): void {
-    const viewport = this.contentViewportRef?.nativeElement;
-    const track = this.contentTrackRef?.nativeElement;
+    const viewport = this.getContentViewportElement();
+    const track = this.getContentTrackElement();
 
     if (
       !this.enableContentAreaHorizontalScroll() ||
@@ -1179,6 +1205,14 @@ export class RHCRibbonLayoutComponent implements AfterViewInit, OnDestroy {
 
   private measureTrackWidth(track: HTMLElement): number {
     return Math.max(track.scrollWidth, track.getBoundingClientRect().width);
+  }
+
+  private getContentViewportElement(): HTMLElement | null {
+    return this.contentAreaRef?.nativeElement.querySelector('.rhc-ribbon-layout-content-viewport') ?? null;
+  }
+
+  private getContentTrackElement(): HTMLElement | null {
+    return this.contentAreaRef?.nativeElement.querySelector('.rhc-ribbon-layout-content-track') ?? null;
   }
 
   private emitLifecycleEvent(event: RHCRibbonLayoutEvent): void {

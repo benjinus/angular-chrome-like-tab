@@ -143,10 +143,11 @@
   @if (showContentArea()) {
     <div
       class="rhc-ribbon-layout-content"
+      #contentArea
       [class.rhc-ribbon-layout-content--empty]="!activeTab()"
       [class.rhc-ribbon-layout-content--dark]="theme() === 'dark'"
       [class.rhc-ribbon-layout-content--compact]="mode() === 'compact'"
-      [class.rhc-ribbon-layout-content--scroll-enabled]="enableContentAreaHorizontalScroll()"
+      [class.rhc-ribbon-layout-content--scroll-enabled]="canScrollContent()"
       [class]="activeTabContentContainerClass()"
     >
       @if (activeTab(); as activeTab) {

@@ -210,6 +210,11 @@ button:hover {
   gap: 1rem;
 }
 
+.tab-view--horizontal-demo {
+  min-width: 68rem;
+  padding-right: 1rem;
+}
+
 .tab-view__eyebrow {
   margin: 0;
   font-size: 0.78rem;

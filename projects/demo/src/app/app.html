@@ -14,6 +14,7 @@
       [tabs]="tabs()"
       [activeTabId]="activeTabId()"
       [showContentArea]="showContentArea()"
+      [enableContentAreaHorizontalScroll]="true"
       [enableTabReorder]="enableTabReorder()"
       [showTabBarMenuButton]="true"
       [tabBarMenuTemplate]="tabBarMenuTemplateRef ?? null"
@@ -155,7 +156,7 @@
 </ng-template>
 
 <ng-template #workspaceTemplate let-data let-tab="tab">
-  <section class="tab-view">
+  <section class="tab-view tab-view--horizontal-demo">
     <p class="tab-view__eyebrow">{{ tab?.title }}</p>
     <h3>{{ data.heading }}</h3>
     <p class="tab-view__body">{{ data.description }}</p>
@@ -168,7 +169,7 @@
 </ng-template>
 
 <ng-template #inboxTemplate let-data let-tab="tab">
-  <section class="tab-view">
+  <section class="tab-view tab-view--horizontal-demo">
     <p class="tab-view__eyebrow">{{ tab?.title }}</p>
     <h3>{{ data.heading }}</h3>
     <div class="tab-view__list">
@@ -180,7 +181,7 @@
 </ng-template>
 
 <ng-template #dashboardTemplate let-data let-tab="tab">
-  <section class="tab-view">
+  <section class="tab-view tab-view--horizontal-demo">
     <p class="tab-view__eyebrow">{{ tab?.title }}</p>
     <h3>{{ data.heading }}</h3>
     <div class="tab-view__metrics">
