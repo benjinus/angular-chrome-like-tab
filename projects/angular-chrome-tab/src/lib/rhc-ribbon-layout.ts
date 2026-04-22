@@ -1,7 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { ConnectedPosition, OverlayModule } from '@angular/cdk/overlay';
 import {
-  AfterViewChecked,
   AfterViewInit,
   Component,
   ElementRef,
@@ -312,7 +311,7 @@ interface RHCRibbonContentDragState {
     '[style.--tab-title-font]': 'tabTitleFont',
   },
 })
-export class RHCRibbonLayoutComponent implements AfterViewInit, AfterViewChecked, OnDestroy {
+export class RHCRibbonLayoutComponent implements AfterViewInit, OnDestroy {
   readonly tabs = input<RHCRibbonLayoutTab[]>([]);
   readonly mode = input<RHCRibbonLayoutMode>('default');
   readonly showContentArea = input(true);
@@ -573,16 +572,7 @@ export class RHCRibbonLayoutComponent implements AfterViewInit, AfterViewChecked
     this.resizeObserver.observe(contentElement);
     this.hasViewInitialized = true;
     this.observeContentScrollElements();
-    this.measureContentMetrics();
     this.scheduleContentMetricsUpdate();
-  }
-
-  ngAfterViewChecked(): void {
-    if (!this.hasViewInitialized || !this.enableContentAreaHorizontalScroll()) {
-      return;
-    }
-    this.observeContentScrollElements();
-    this.measureContentMetrics();
   }
 
   ngOnDestroy(): void {
@@ -1208,11 +1198,16 @@ export class RHCRibbonLayoutComponent implements AfterViewInit, AfterViewChecked
   }
 
   private getContentViewportElement(): HTMLElement | null {
-    return this.contentAreaRef?.nativeElement.querySelector('.rhc-ribbon-layout-content-viewport') ?? null;
+    return (
+      this.contentAreaRef?.nativeElement.querySelector('.rhc-ribbon-layout-content-viewport') ??
+      null
+    );
   }
 
   private getContentTrackElement(): HTMLElement | null {
-    return this.contentAreaRef?.nativeElement.querySelector('.rhc-ribbon-layout-content-track') ?? null;
+    return (
+      this.contentAreaRef?.nativeElement.querySelector('.rhc-ribbon-layout-content-track') ?? null
+    );
   }
 
   private emitLifecycleEvent(event: RHCRibbonLayoutEvent): void {
