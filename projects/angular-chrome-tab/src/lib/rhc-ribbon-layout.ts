@@ -632,6 +632,10 @@ export class RHCRibbonLayoutComponent implements AfterViewInit, OnDestroy {
       return;
     }
 
+    if (this.internalTabs().length <= 1) {
+      return;
+    }
+
     if (event.pointerType === 'mouse' && event.button !== 0) {
       return;
     }

@@ -78,6 +78,7 @@
             (pointermove)="handleTabPointerMove(tab.id, $event)"
             (pointerup)="handleTabPointerUp(tab.id, $event)"
             (pointercancel)="handleTabPointerUp(tab.id, $event)"
+            (lostpointercapture)="handleTabPointerUp(tab.id, $event)"
           >
             @if (tab.favicon) {
               <div

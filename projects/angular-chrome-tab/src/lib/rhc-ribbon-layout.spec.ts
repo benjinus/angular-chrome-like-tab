@@ -694,6 +694,7 @@ describe('RHCRibbonLayoutComponent', () => {
     const firstTab = tabElements[0] as HTMLElement;
     const secondTab = tabElements[1] as HTMLElement;
     const firstTabContent = firstTab.querySelector('.ribbon-tab-content') as HTMLButtonElement | null;
+    const reorderedSlotTransform = secondTab.style.transform;
     const moveDelta = parseTranslateX(secondTab) - parseTranslateX(firstTab) + 8;
 
     dispatchPointerEvent(firstTabContent, 'pointerdown', { clientX: 100, timeStamp: 0 });
@@ -724,6 +725,7 @@ describe('RHCRibbonLayoutComponent', () => {
     const firstTab = tabElements[0] as HTMLElement;
     const secondTab = tabElements[1] as HTMLElement;
     const firstTabContent = firstTab.querySelector('.ribbon-tab-content') as HTMLButtonElement | null;
+    const reorderedSlotTransform = secondTab.style.transform;
     const moveDelta = parseTranslateX(secondTab) - parseTranslateX(firstTab) + 8;
 
     dispatchPointerEvent(firstTabContent, 'pointerdown', { clientX: 100, timeStamp: 0 });
@@ -761,6 +763,7 @@ describe('RHCRibbonLayoutComponent', () => {
     const firstTab = tabElements[0] as HTMLElement;
     const secondTab = tabElements[1] as HTMLElement;
     const firstTabContent = firstTab.querySelector('.ribbon-tab-content') as HTMLButtonElement | null;
+    const reorderedSlotTransform = secondTab.style.transform;
     const moveDelta = parseTranslateX(secondTab) - parseTranslateX(firstTab) + 8;
 
     dispatchPointerEvent(firstTabContent, 'pointerdown', { clientX: 120, timeStamp: 0 });
@@ -800,6 +803,58 @@ describe('RHCRibbonLayoutComponent', () => {
     fixture.detectChanges();
 
     expect(emitSpy).not.toHaveBeenCalled();
+  });
+
+  it('does not enter drag reorder state when only one tab is present', () => {
+    fixture.componentRef.setInput('enableTabReorder', true);
+    fixture.componentRef.setInput('tabs', [{ id: '1', title: 'Only Tab' }]);
+    fixture.detectChanges();
+
+    const emitSpy = vi.spyOn(component.tabReorder, 'emit');
+    const tabElement = fixture.nativeElement.querySelector('.ribbon-tab') as HTMLElement | null;
+    const tabContent = tabElement?.querySelector('.ribbon-tab-content') as HTMLButtonElement | null;
+    const initialTransform = tabElement?.style.transform ?? '';
+
+    dispatchPointerEvent(tabContent, 'pointerdown', { clientX: 100, timeStamp: 0 });
+    dispatchPointerEvent(tabContent, 'pointermove', { clientX: 220, timeStamp: 16 });
+    fixture.detectChanges();
+    dispatchPointerEvent(tabContent, 'pointerup', { clientX: 220, timeStamp: 32 });
+    fixture.detectChanges();
+
+    expect(emitSpy).not.toHaveBeenCalled();
+    expect(tabElement?.classList.contains('ribbon-tab--dragging')).toBe(false);
+    expect(tabElement?.style.transform).toBe(initialTransform);
+  });
+
+  it('clears drag reorder state when pointer capture is lost before pointerup', () => {
+    fixture.componentRef.setInput('enableTabReorder', true);
+    fixture.componentRef.setInput('tabs', [
+      { id: '1', title: 'One' },
+      { id: '2', title: 'Two' },
+    ]);
+    fixture.detectChanges();
+
+    const tabElements = Array.from(fixture.nativeElement.querySelectorAll('.ribbon-tab')) as HTMLElement[];
+    const firstTab = tabElements[0] as HTMLElement;
+    const secondTab = tabElements[1] as HTMLElement;
+    const firstTabContent = firstTab.querySelector('.ribbon-tab-content') as HTMLButtonElement | null;
+    const reorderedSlotTransform = secondTab.style.transform;
+    const moveDelta = parseTranslateX(secondTab) - parseTranslateX(firstTab) + 8;
+
+    dispatchPointerEvent(firstTabContent, 'pointerdown', { clientX: 100, timeStamp: 0 });
+    dispatchPointerEvent(firstTabContent, 'pointermove', { clientX: 100 + moveDelta, timeStamp: 16 });
+    fixture.detectChanges();
+
+    expect(firstTab.classList.contains('ribbon-tab--dragging')).toBe(true);
+
+    dispatchPointerEvent(firstTabContent, 'lostpointercapture', {
+      clientX: 100 + moveDelta,
+      timeStamp: 32,
+    });
+    fixture.detectChanges();
+
+    expect(firstTab.classList.contains('ribbon-tab--dragging')).toBe(false);
+    expect(firstTab.style.transform).toBe(reorderedSlotTransform);
   });
 });
 
