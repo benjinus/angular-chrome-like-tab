@@ -505,11 +505,6 @@
 
 .ribbon-tabs-menu-overlay {
   min-width: 220px;
-  padding: 0.5rem;
-  border: 1px solid rgba(127, 139, 161, 0.28);
-  border-radius: 1rem;
-  background: rgba(255, 255, 255, 0.96);
-  box-shadow: 0 18px 48px rgba(41, 53, 76, 0.24);
 }
 
 .ribbon-tabs-bottom-bar {
